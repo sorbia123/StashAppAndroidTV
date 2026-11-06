@@ -447,7 +447,7 @@ fun checkForSupport(tracks: Tracks): List<TrackSupport> =
         }
     }
 
-fun maybeMuteAudio(
+fun maybeMuteAudioFromPrefs(
     preferences: StashPreferences,
     checkPreviewAudioPref: Boolean,
     player: Player?,
@@ -544,7 +544,7 @@ fun switchToTranscode(
             PlaybackMode.ForcedTranscode(prefs.streamChoice.label),
             prefs.streamChoice,
             Resolution.UNSPECIFIED,
-            CodecSupport.getSupportedCodecs(prefs),
+            CodecSupport.getSupportedCodecsFromPrefs(prefs),
         )
     return buildMediaItem(context, transcodeDecision, currScene) {
         setTag(PlaylistFragment.MediaItemTag(currScene, transcodeDecision))

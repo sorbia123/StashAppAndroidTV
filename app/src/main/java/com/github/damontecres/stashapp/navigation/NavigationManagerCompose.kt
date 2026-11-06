@@ -169,6 +169,7 @@ class NavigationManagerCompose(
             is Destination.CreateFilter,
             is Destination.UpdateMarker,
             is Destination.LicenseInfo,
+            Destination.OCountDashboard,
             -> navigate(destination)
 
             Destination.Main,

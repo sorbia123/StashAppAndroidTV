@@ -8,6 +8,7 @@ import com.github.damontecres.stashapp.api.type.DateCriterionInput
 import com.github.damontecres.stashapp.api.type.DuplicationCriterionInput
 import com.github.damontecres.stashapp.api.type.FloatCriterionInput
 import com.github.damontecres.stashapp.api.type.GenderCriterionInput
+import com.github.damontecres.stashapp.api.type.HierarchicalCountInput
 import com.github.damontecres.stashapp.api.type.HierarchicalMultiCriterionInput
 import com.github.damontecres.stashapp.api.type.IntCriterionInput
 import com.github.damontecres.stashapp.api.type.MultiCriterionInput
@@ -45,6 +46,10 @@ class FilterWriter(
                         } else {
                             val value =
                                 when (o) {
+                                    is HierarchicalCountInput -> {
+                                        o.toMap()
+                                    }
+
                                     is IntCriterionInput -> {
                                         o.toMap()
                                     }

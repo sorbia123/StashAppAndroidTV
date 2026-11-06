@@ -1,4 +1,4 @@
-package com.github.damontecres.stashapp.util
+package com.github.damontecres.stashapp.glide
 
 import android.content.Context
 import android.graphics.drawable.PictureDrawable
@@ -8,12 +8,11 @@ import com.bumptech.glide.GlideBuilder
 import com.bumptech.glide.Registry
 import com.bumptech.glide.annotation.GlideModule
 import com.bumptech.glide.integration.okhttp3.OkHttpUrlLoader
-import com.bumptech.glide.load.engine.cache.InternalCacheDiskCacheFactory
-import com.bumptech.glide.load.engine.executor.GlideExecutor
 import com.bumptech.glide.load.model.GlideUrl
 import com.bumptech.glide.module.AppGlideModule
 import com.caverock.androidsvg.SVG
 import com.github.damontecres.stashapp.R
+import com.github.damontecres.stashapp.util.StashClient
 import com.github.damontecres.stashapp.util.svg.SvgDecoder
 import com.github.damontecres.stashapp.util.svg.SvgDrawableTranscoder
 import java.io.InputStream
@@ -49,18 +48,6 @@ class StashGlideModule : AppGlideModule() {
                 .getInt(context.getString(R.string.pref_key_image_cache_size), 100)
                 .coerceAtLeast(10)
 
-        builder.setDiskCache(
-            InternalCacheDiskCacheFactory(
-                context,
-                (diskCacheSize * 1024 * 1024).toLong(),
-            ),
-        )
-
-        val cpus = Runtime.getRuntime().availableProcessors()
-        val threads =
-            prefs
-                .getInt(context.getString(R.string.pref_key_image_loading_threads), cpus)
-                .coerceIn(1, cpus * 3)
-        builder.setSourceExecutor(GlideExecutor.newSourceBuilder().setThreadCount(threads).build())
+        // builder.setDiskCache(InternalCacheDiskCacheFactory(context, (diskCacheSize * 1024 * 1024).toLong()))
     }
 }

@@ -22,6 +22,7 @@ import com.github.damontecres.stashapp.api.type.DuplicationCriterionInput
 import com.github.damontecres.stashapp.api.type.FloatCriterionInput
 import com.github.damontecres.stashapp.api.type.GenderCriterionInput
 import com.github.damontecres.stashapp.api.type.GenderEnum
+import com.github.damontecres.stashapp.api.type.HierarchicalCountInput
 import com.github.damontecres.stashapp.api.type.HierarchicalMultiCriterionInput
 import com.github.damontecres.stashapp.api.type.IntCriterionInput
 import com.github.damontecres.stashapp.api.type.MultiCriterionInput
@@ -304,6 +305,35 @@ fun filterSummaryRating(f: IntCriterionInput): String {
 fun filterSummaryDuration(f: IntCriterionInput): String = filterSummary(f, { it.toDuration(DurationUnit.SECONDS).toString() })
 
 fun filterSummary(
+    f: HierarchicalCountInput,
+    valueMapper: ((Int) -> String) = { it.toString() },
+): String {
+    val modStr = f.modifier.getString(StashApplication.getApplication())
+    val value = valueMapper(f.value)
+    val value2 = f.value2.getOrNull()?.let { valueMapper(it) }
+    val toStr =
+        when (f.modifier) {
+            CriterionModifier.EQUALS,
+            CriterionModifier.NOT_EQUALS,
+            CriterionModifier.GREATER_THAN,
+            CriterionModifier.LESS_THAN,
+            -> value
+
+            CriterionModifier.IS_NULL, CriterionModifier.NOT_NULL -> null
+
+            CriterionModifier.BETWEEN, CriterionModifier.NOT_BETWEEN -> "$value & $value2"
+
+            else -> throw IllegalArgumentException("${f.modifier}")
+        }
+
+    return if (toStr != null) {
+        "$modStr $toStr"
+    } else {
+        modStr
+    }
+}
+
+fun filterSummary(
     f: IntCriterionInput,
     valueMapper: ((Int) -> String) = { it.toString() },
 ): String {
@@ -538,6 +568,10 @@ fun filterSummary(
         filterSummaryDuration(value as IntCriterionInput)
     } else {
         when (value) {
+            is HierarchicalCountInput -> {
+                filterSummary(value)
+            }
+
             is IntCriterionInput -> {
                 filterSummary(value)
             }

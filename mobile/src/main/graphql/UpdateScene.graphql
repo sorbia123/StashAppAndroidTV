@@ -1,0 +1,9 @@
+mutation UpdateScene($input: SceneUpdateInput!) {
+    sceneUpdate(input: $input) {
+        id
+        title
+        details
+        rating100
+        ...SlimSceneData
+    }
+}

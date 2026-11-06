@@ -1,0 +1,8 @@
+query FindPerformers($filter: FindFilterType, $performer_filter: PerformerFilterType, $ids: [ID!]) {
+    findPerformers(filter: $filter, performer_filter: $performer_filter, ids: $ids) {
+        performers {
+            id
+            name
+        }
+    }
+}

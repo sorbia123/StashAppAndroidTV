@@ -90,6 +90,7 @@ import com.github.damontecres.stashapp.ui.components.scene.SceneDescriptionDialo
 import com.github.damontecres.stashapp.ui.components.scene.SceneDetailsFooter
 import com.github.damontecres.stashapp.ui.components.scene.SceneDetailsHeader
 import com.github.damontecres.stashapp.ui.components.scene.SceneDetailsViewModel
+import com.github.damontecres.stashapp.ui.components.scene.SceneHistoryDialog
 import com.github.damontecres.stashapp.ui.components.scene.SceneLoadingState
 import com.github.damontecres.stashapp.ui.components.scene.sceneDetailsBody
 import com.github.damontecres.stashapp.ui.tryRequestFocus
@@ -265,6 +266,7 @@ fun SceneDetails(
 
     var showDialog by remember { mutableStateOf<DialogParams?>(null) }
     var showDetailsDialog by remember { mutableStateOf(false) }
+    var showHistoryDialog by remember { mutableStateOf(false) }
     var searchForDataType by remember { mutableStateOf<SearchForParams?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -536,11 +538,13 @@ fun SceneDetails(
                                     playOnClick = playOnClick,
                                     showDurationDialog = { showMarkerDurationDialog = true },
                                     detailsOnClick = { showDetailsDialog = true },
+                                    historyOnClick = { showHistoryDialog = true },
                                     streamChoice = uiConfig.preferences.playbackPreferences.streamChoice,
                                 ),
                         )
                 },
                 detailsOnClick = { showDetailsDialog = true },
+                historyOnClick = { showHistoryDialog = true },
                 oCounterOnClick = { oCountAction.invoke(MutationEngine::incrementOCounter) },
                 oCounterOnLongClick = {
                     showDialog =
@@ -635,6 +639,12 @@ fun SceneDetails(
         scene = scene,
         onDismissRequest = { showDetailsDialog = false },
     )
+    SceneHistoryDialog(
+        show = showHistoryDialog,
+        playHistory = scene.play_history,
+        oHistory = scene.o_history,
+        onDismissRequest = { showHistoryDialog = false },
+    )
     if (showDeleteDialog) {
         DeleteDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -659,6 +669,7 @@ fun moreOptionsItems(
     playOnClick: (position: Long, mode: PlaybackMode) -> Unit,
     showDurationDialog: () -> Unit,
     detailsOnClick: () -> Unit,
+    historyOnClick: () -> Unit,
 ): List<DialogItem> =
     buildList {
         add(
@@ -666,6 +677,13 @@ fun moreOptionsItems(
                 context.getString(R.string.stashapp_details),
                 Icons.Default.Info,
                 onClick = detailsOnClick,
+            ),
+        )
+        add(
+            DialogItem(
+                context.getString(R.string.history),
+                Icons.Default.Info,
+                onClick = historyOnClick,
             ),
         )
         add(

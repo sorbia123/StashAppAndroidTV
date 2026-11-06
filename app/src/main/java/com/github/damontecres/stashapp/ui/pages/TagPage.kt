@@ -50,6 +50,7 @@ import com.github.damontecres.stashapp.util.PageFilterKey
 import com.github.damontecres.stashapp.util.QueryEngine
 import com.github.damontecres.stashapp.util.StashServer
 import com.github.damontecres.stashapp.util.getUiTabs
+import com.github.damontecres.stashapp.util.getUiTabsFromPrefs
 import kotlinx.coroutines.launch
 
 private const val TAG = "TagPage"
@@ -104,7 +105,7 @@ fun TagPage(
         val subToggleEnabled = tag.child_count > 0
 
         val uiTabs =
-            getUiTabs(uiConfig.preferences.interfacePreferences.tabPreferences, DataType.TAG)
+            getUiTabsFromPrefs(uiConfig.preferences.interfacePreferences.tabPreferences, DataType.TAG)
 
         val detailsTab =
             remember {

@@ -98,6 +98,7 @@ import com.github.damontecres.stashapp.playback.TrackType
 import com.github.damontecres.stashapp.playback.TranscodeDecision
 import com.github.damontecres.stashapp.playback.checkForSupport
 import com.github.damontecres.stashapp.playback.maybeMuteAudio
+import com.github.damontecres.stashapp.playback.maybeMuteAudioFromPrefs
 import com.github.damontecres.stashapp.playback.switchToTranscode
 import com.github.damontecres.stashapp.proto.PlaybackFinishBehavior
 import com.github.damontecres.stashapp.ui.ComposeUiConfig
@@ -698,7 +699,7 @@ fun PlaybackPageContent(
             uiConfig,
         )
         viewModel.changeScene(playlist[currentPlaylistIndex].localConfiguration!!.tag as PlaylistFragment.MediaItemTag)
-        maybeMuteAudio(uiConfig.preferences, false, player)
+        maybeMuteAudioFromPrefs(uiConfig.preferences, false, player)
         player.setMediaItems(playlist, startIndex, savedStartPosition)
         if (playlistPager == null) {
             player.setupFinishedBehavior(

@@ -44,8 +44,10 @@ fragment SlimSceneData on Scene {
     play_count
     play_duration
     o_counter
+    o_history
     organized
     resume_time
+    last_played_at @catch(to: NULL)
     created_at @catch(to: NULL)
     updated_at @catch(to: NULL)
     files {
@@ -105,6 +107,9 @@ fragment FullSceneData on Scene {
     resume_time
     play_duration
     play_count
+    last_played_at @catch(to: NULL)
+    play_history
+    o_history
     created_at @catch(to: NULL)
     updated_at @catch(to: NULL)
     files {

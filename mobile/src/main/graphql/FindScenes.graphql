@@ -1,0 +1,82 @@
+query FindScenes($filter: FindFilterType, $scene_filter: SceneFilterType, $ids: [ID!]) {
+    findScenes(filter: $filter, scene_filter: $scene_filter, ids: $ids) {
+        count
+        scenes {
+            ...SlimSceneData
+            __typename
+        }
+        __typename
+    }
+}
+
+fragment SlimSceneData on Scene {
+    id
+    title
+    code
+    details
+    director
+    urls
+    date
+    rating100
+    play_count
+    play_duration
+    play_history
+    o_counter
+    o_history
+    organized
+    resume_time
+    last_played_at @catch(to: NULL)
+    created_at @catch(to: NULL)
+    updated_at @catch(to: NULL)
+    files {
+        ...VideoFile
+        __typename
+    }
+    paths {
+        screenshot
+        preview
+        stream
+        sprite
+        caption
+        __typename
+    }
+    studio {
+        id
+        name
+        image_path
+        __typename
+    }
+    tags {
+        ...SlimTagData
+        __typename
+    }
+    performers {
+        id
+        name
+        __typename
+    }
+    __typename
+}
+
+fragment SlimTagData on Tag {
+    id
+    name
+    image_path
+    __typename
+}
+
+fragment VideoFile on VideoFile {
+    id
+    path
+    size
+    mod_time
+    duration
+    video_codec
+    audio_codec
+    format
+    width
+    height
+    frame_rate
+    bit_rate
+    __typename
+}

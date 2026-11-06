@@ -57,6 +57,7 @@ import com.github.damontecres.stashapp.util.QueryEngine
 import com.github.damontecres.stashapp.util.StashCoroutineExceptionHandler
 import com.github.damontecres.stashapp.util.StashServer
 import com.github.damontecres.stashapp.util.getUiTabs
+import com.github.damontecres.stashapp.util.getUiTabsFromPrefs
 import com.github.damontecres.stashapp.util.showSetRatingToast
 import kotlinx.coroutines.launch
 
@@ -454,7 +455,7 @@ fun StudioPage(
             }
 
         val uiTabs =
-            getUiTabs(uiConfig.preferences.interfacePreferences.tabPreferences, DataType.STUDIO)
+            getUiTabsFromPrefs(uiConfig.preferences.interfacePreferences.tabPreferences, DataType.STUDIO)
         val tabs =
             listOf(
                 detailsTab,

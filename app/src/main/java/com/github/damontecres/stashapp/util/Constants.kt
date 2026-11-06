@@ -480,8 +480,10 @@ val FullSceneData.asSlimeSceneData: SlimSceneData
             play_duration = play_duration,
             rating100 = this.rating100,
             o_counter = this.o_counter,
+            o_history = this.o_history,
             organized = this.organized,
             resume_time = this.resume_time,
+            last_played_at = this.last_played_at,
             created_at = this.created_at,
             updated_at = this.updated_at,
             files = this.files.map { SlimSceneData.File(it.__typename, it.videoFile) },
@@ -522,36 +524,42 @@ val FullSceneData.asSlimeSceneData: SlimSceneData
 val FullSceneData.asVideoSceneData: VideoSceneData
     get() =
         VideoSceneData(
-            id,
-            title,
-            urls,
-            date,
-            resume_time,
-            rating100,
-            o_counter,
-            files.map { VideoSceneData.File("", it.videoFile) },
-            VideoSceneData.Paths(
-                paths.caption,
-                paths.screenshot,
-                paths.preview,
-                paths.stream,
-                paths.sprite,
-                paths.vtt,
+            id = id,
+            title = title,
+            urls = urls,
+            date = date,
+            resume_time = resume_time,
+            rating100 = rating100,
+            o_counter = o_counter,
+            play_count = play_count,
+            play_duration = play_duration,
+            last_played_at = last_played_at,
+            files = files.map { VideoSceneData.File("", it.videoFile) },
+            paths = VideoSceneData.Paths(
+                caption = paths.caption,
+                screenshot = paths.screenshot,
+                preview = paths.preview,
+                stream = paths.stream,
+                sprite = paths.sprite,
+                vtt = paths.vtt,
             ),
-            sceneStreams.map { VideoSceneData.SceneStream(it.url, it.mime_type, it.label) },
-            captions?.map { VideoSceneData.Caption("", it.caption) },
+            sceneStreams = sceneStreams.map { VideoSceneData.SceneStream(it.url, it.mime_type, it.label) },
+            captions = captions?.map { VideoSceneData.Caption("", it.caption) },
         )
 
 val FullSceneData.asMinimalSceneData: MinimalSceneData
     get() =
         MinimalSceneData(
-            id,
-            title,
-            urls,
-            date,
-            rating100,
-            o_counter,
-            files.map { MinimalSceneData.File("", it.videoFile) },
+            id = id,
+            title = title,
+            urls = urls,
+            date = date,
+            rating100 = rating100,
+            o_counter = o_counter,
+            play_count = play_count,
+            play_duration = play_duration,
+            last_played_at = last_played_at,
+            files = files.map { MinimalSceneData.File("", it.videoFile) },
         )
 
 val TagData.asSlimTagData: SlimTagData
@@ -989,7 +997,7 @@ fun showDebugInfo(): Boolean {
         .getBoolean(context.getString(R.string.pref_key_show_playback_debug_info), false)
 }
 
-fun getUiTabs(
+fun getUiTabsFromPrefs(
     tabPreferences: TabPreferences,
     dataType: DataType,
 ) = when (dataType) {

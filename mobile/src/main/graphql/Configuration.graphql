@@ -1,0 +1,11 @@
+query Credentials {
+    configuration {
+        general {
+            apiKey
+        }
+    }
+}
+
+mutation GenerateApiKey {
+    generateAPIKey(input: {clear: false})
+}

@@ -63,6 +63,7 @@ import com.github.damontecres.stashapp.api.fragment.PerformerData
 import com.github.damontecres.stashapp.api.fragment.SlimSceneData
 import com.github.damontecres.stashapp.api.fragment.StudioData
 import com.github.damontecres.stashapp.api.fragment.TagData
+import com.github.damontecres.stashapp.navigation.Destination
 import com.github.damontecres.stashapp.navigation.FilterAndPosition
 import com.github.damontecres.stashapp.proto.StashPreferences
 import com.github.damontecres.stashapp.proto.UpdatePreferences
@@ -484,6 +485,7 @@ fun ServerStatsRow(
     serverStats: StatisticsQuery.Stats?,
     modifier: Modifier = Modifier,
 ) {
+    val navigationManager = LocalGlobalContext.current.navigationManager
     serverStats?.let { stats ->
         Row(
             modifier = modifier,
@@ -517,8 +519,11 @@ fun ServerStatsRow(
                     .toString(),
             )
             TitleValueText(
-                stringResource(R.string.stashapp_stats_total_o_count),
-                formatNumber(stats.total_o_count, server.serverPreferences.abbreviateCounters),
+                title = stringResource(R.string.stashapp_stats_total_o_count),
+                value = formatNumber(stats.total_o_count, server.serverPreferences.abbreviateCounters),
+                onClick = {
+                    navigationManager.navigate(Destination.OCountDashboard)
+                },
             )
         }
     }

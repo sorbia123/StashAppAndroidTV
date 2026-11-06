@@ -63,7 +63,7 @@ class DebugFragment : Fragment(R.layout.debug) {
         }
         serverPrefTable.isStretchAllColumns = true
 
-        val codecs = CodecSupport.getSupportedCodecs(requireContext())
+        val codecs = CodecSupport.getSupportedCodecs(requireContext() as android.content.Context)
         formatSupportedTable.addView(
             createRow(
                 "Video Codecs",

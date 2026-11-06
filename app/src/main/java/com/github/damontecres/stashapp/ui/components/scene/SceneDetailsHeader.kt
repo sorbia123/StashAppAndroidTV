@@ -75,6 +75,7 @@ fun SceneDetailsHeader(
     editOnClick: () -> Unit,
     moreOnClick: () -> Unit,
     detailsOnClick: () -> Unit,
+    historyOnClick: () -> Unit,
     oCounterOnClick: () -> Unit,
     oCounterOnLongClick: () -> Unit,
     onRatingChange: (Int) -> Unit,
@@ -141,6 +142,7 @@ fun SceneDetailsHeader(
                 uiConfig = uiConfig,
                 itemOnClick = itemOnClick,
                 detailsOnClick = detailsOnClick,
+                historyOnClick = historyOnClick,
                 onRatingChange = onRatingChange,
                 bringIntoViewRequester = bringIntoViewRequester,
                 removeLongClicker = removeLongClicker,
@@ -179,6 +181,7 @@ fun SceneDetailsHeaderInfo(
     uiConfig: ComposeUiConfig,
     itemOnClick: ItemOnClicker<Any>,
     detailsOnClick: () -> Unit,
+    historyOnClick: () -> Unit,
     onRatingChange: (Int) -> Unit,
     bringIntoViewRequester: BringIntoViewRequester,
     removeLongClicker: LongClicker<Any>,
@@ -315,10 +318,26 @@ fun SceneDetailsHeaderInfo(
                 TitleValueText(
                     stringResource(R.string.stashapp_play_count),
                     (scene.play_count ?: 0).toString(),
+                    playSoundOnFocus = uiConfig.playSoundOnFocus,
+                    modifier =
+                        Modifier.onFocusChanged {
+                            if (it.isFocused) {
+                                scope.launch(StashCoroutineExceptionHandler()) { bringIntoViewRequester.bringIntoView() }
+                            }
+                        },
+                    onClick = historyOnClick,
                 )
                 TitleValueText(
                     stringResource(R.string.stashapp_play_duration),
                     durationToString(scene.play_duration ?: 0.0),
+                    playSoundOnFocus = uiConfig.playSoundOnFocus,
+                    modifier =
+                        Modifier.onFocusChanged {
+                            if (it.isFocused) {
+                                scope.launch(StashCoroutineExceptionHandler()) { bringIntoViewRequester.bringIntoView() }
+                            }
+                        },
+                    onClick = historyOnClick,
                 )
             }
         }

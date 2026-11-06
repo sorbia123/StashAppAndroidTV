@@ -29,6 +29,7 @@ import com.github.damontecres.stashapp.ui.pages.SearchPage
 import com.github.damontecres.stashapp.ui.pages.SettingsPage
 import com.github.damontecres.stashapp.ui.pages.StudioPage
 import com.github.damontecres.stashapp.ui.pages.TagPage
+import com.github.damontecres.stashapp.dashboard.OCountDashboardScreen
 import com.github.damontecres.stashapp.ui.pages.UpdateAppPage
 import com.github.damontecres.stashapp.util.StashServer
 import kotlin.time.Duration.Companion.milliseconds
@@ -102,6 +103,12 @@ fun DestinationContent(
                 uiConfig = composeUiConfig,
                 onUpdateTitle = onUpdateTitle,
                 modifier = modifier,
+            )
+        }
+
+        is Destination.OCountDashboard -> {
+            OCountDashboardScreen(
+                onNavigateBack = { navManager.goBack() }
             )
         }
 
@@ -186,6 +193,7 @@ fun DestinationContent(
         is Destination.Debug -> {
             DebugPage(
                 server = server,
+                navigationManager = navManager,
                 uiConfig = composeUiConfig,
                 modifier = Modifier.fillMaxSize(),
             )

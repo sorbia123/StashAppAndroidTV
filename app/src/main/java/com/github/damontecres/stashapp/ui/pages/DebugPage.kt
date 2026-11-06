@@ -27,6 +27,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.material3.Button
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -38,6 +39,8 @@ import com.github.damontecres.stashapp.BuildConfig
 import com.github.damontecres.stashapp.StashApplication
 import com.github.damontecres.stashapp.data.DataType
 import com.github.damontecres.stashapp.data.room.PlaybackEffect
+import com.github.damontecres.stashapp.navigation.Destination
+import com.github.damontecres.stashapp.navigation.NavigationManagerCompose
 import com.github.damontecres.stashapp.playback.CodecSupport
 import com.github.damontecres.stashapp.ui.ComposeUiConfig
 import com.github.damontecres.stashapp.ui.components.TableRow
@@ -76,6 +79,7 @@ fun TableRowSmall(
 @Composable
 fun DebugPage(
     server: StashServer,
+    navigationManager: NavigationManagerCompose,
     uiConfig: ComposeUiConfig,
     modifier: Modifier = Modifier,
 ) {
@@ -146,6 +150,13 @@ fun DebugPage(
                     return@onKeyEvent false
                 },
     ) {
+        item {
+            androidx.compose.material3.Button(
+                onClick = { navigationManager.navigate(Destination.OCountDashboard) }
+            ) {
+                androidx.compose.material3.Text("Open 'O' Count Analytics Dashboard")
+            }
+        }
         // StashPreferences
         item {
             Column {
@@ -312,7 +323,7 @@ fun DebugPage(
         // Codecs
         item {
             val codecs =
-                remember { CodecSupport.getSupportedCodecs(uiConfig.preferences.playbackPreferences) }
+                remember { CodecSupport.getSupportedCodecsFromPrefs(uiConfig.preferences.playbackPreferences) }
             val rows =
                 listOfNotNull(
                     tableRow("Video codecs", codecs.videoCodecs.sorted().joinToString(", ")),

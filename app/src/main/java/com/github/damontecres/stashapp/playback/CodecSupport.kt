@@ -56,7 +56,7 @@ data class CodecSupport(
                 }
             }.toMap()
 
-        fun getSupportedCodecs(prefs: PlaybackPreferences): CodecSupport {
+        fun getSupportedCodecsFromPrefs(prefs: PlaybackPreferences): CodecSupport {
             val videoCodecs = prefs.directPlayVideoList.toMutableSet()
             val audioCodecs = prefs.directPlayAudioList.toMutableSet()
             val containers = prefs.directPlayFormatList.toMutableSet()

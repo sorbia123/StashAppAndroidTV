@@ -89,6 +89,7 @@ import com.github.damontecres.stashapp.api.fragment.TagData
 import com.github.damontecres.stashapp.data.DataType
 import com.github.damontecres.stashapp.navigation.FilterAndPosition
 import com.github.damontecres.stashapp.playback.maybeMuteAudio
+import com.github.damontecres.stashapp.playback.maybeMuteAudioFromPrefs
 import com.github.damontecres.stashapp.presenters.StashPresenter.Companion.isDefaultUrl
 import com.github.damontecres.stashapp.suppliers.FilterArgs
 import com.github.damontecres.stashapp.ui.ComposeUiConfig
@@ -334,7 +335,7 @@ fun RootCard(
                         LocalGlobalContext.current.server,
                     )
                 LaunchedEffect(player) {
-                    maybeMuteAudio(uiConfig.preferences, true, player)
+                    maybeMuteAudioFromPrefs(uiConfig.preferences, true, player)
                     val mediaItem =
                         MediaItem
                             .Builder()

@@ -35,13 +35,19 @@ plugins {
 
 val gitTags =
     providers
-        .exec { commandLine("git", "tag", "--list", "v*") }
+        .exec {
+            commandLine("git", "tag", "--list", "v*")
+            isIgnoreExitValue = true
+        }
         .standardOutput.asText
-        .get()
+        .getOrElse("")
 
 val gitDescribe =
     providers
-        .exec { commandLine("git", "describe", "--tags", "--long", "--match=v*") }
+        .exec {
+            commandLine("git", "describe", "--tags", "--long", "--match=v*")
+            isIgnoreExitValue = true
+        }
         .standardOutput.asText
         .getOrElse("v0.0.0")
 

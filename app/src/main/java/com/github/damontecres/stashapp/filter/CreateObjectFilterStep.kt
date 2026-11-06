@@ -18,10 +18,12 @@ import com.github.damontecres.stashapp.api.type.OrientationCriterionInput
 import com.github.damontecres.stashapp.api.type.ResolutionCriterionInput
 import com.github.damontecres.stashapp.api.type.StashDataFilter
 import com.github.damontecres.stashapp.api.type.StringCriterionInput
+import com.github.damontecres.stashapp.api.type.HierarchicalCountInput
 import com.github.damontecres.stashapp.filter.picker.BooleanPickerFragment
 import com.github.damontecres.stashapp.filter.picker.CircumcisionPickerFragment
 import com.github.damontecres.stashapp.filter.picker.DatePickerFragment
 import com.github.damontecres.stashapp.filter.picker.DurationPickerFragment
+import com.github.damontecres.stashapp.filter.picker.HierarchicalCountPickerFragment
 import com.github.damontecres.stashapp.filter.picker.FloatPickerFragment
 import com.github.damontecres.stashapp.filter.picker.GenderPickerFragment
 import com.github.damontecres.stashapp.filter.picker.HierarchicalMultiCriterionFragment
@@ -149,6 +151,11 @@ class CreateObjectFilterStep : CreateFilterGuidedStepFragment() {
                         IntCriterionInput::class -> {
                             filterOption as FilterOption<StashDataFilter, IntCriterionInput>
                             nextStep(IntPickerFragment(filterOption))
+                        }
+
+                        HierarchicalCountInput::class -> {
+                            filterOption as FilterOption<StashDataFilter, HierarchicalCountInput>
+                            nextStep(HierarchicalCountPickerFragment(filterOption))
                         }
 
                         FloatCriterionInput::class -> {

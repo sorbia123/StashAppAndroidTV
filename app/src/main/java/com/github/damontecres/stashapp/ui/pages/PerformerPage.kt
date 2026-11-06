@@ -94,6 +94,7 @@ import com.github.damontecres.stashapp.util.QueryEngine
 import com.github.damontecres.stashapp.util.StashServer
 import com.github.damontecres.stashapp.util.ageInYears
 import com.github.damontecres.stashapp.util.getUiTabs
+import com.github.damontecres.stashapp.util.getUiTabsFromPrefs
 import com.github.damontecres.stashapp.util.isNotNullOrBlank
 import com.github.damontecres.stashapp.util.showSetRatingToast
 import com.github.damontecres.stashapp.views.careerString
@@ -332,7 +333,7 @@ fun PerformerDetailsPage(
             ),
         )
     val uiTabs =
-        getUiTabs(uiConfig.preferences.interfacePreferences.tabPreferences, DataType.PERFORMER)
+        getUiTabsFromPrefs(uiConfig.preferences.interfacePreferences.tabPreferences, DataType.PERFORMER)
     val createTab = createTabFunc(server, itemOnClick, longClicker, uiConfig)
     val tabs =
         listOf(

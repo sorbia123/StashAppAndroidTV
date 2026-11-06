@@ -1,0 +1,23 @@
+query FindSavedFilters($mode: FilterMode!) {
+    findSavedFilters(mode: $mode) {
+        ...SavedFilter
+        __typename
+    }
+}
+
+fragment SavedFilter on SavedFilter {
+    id
+    mode
+    name
+    find_filter {
+        q
+        page
+        per_page
+        sort
+        direction
+        __typename
+    }
+    object_filter
+    ui_options
+    __typename
+}

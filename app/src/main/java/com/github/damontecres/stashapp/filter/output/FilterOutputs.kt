@@ -9,6 +9,7 @@ import com.github.damontecres.stashapp.api.type.DuplicationCriterionInput
 import com.github.damontecres.stashapp.api.type.FloatCriterionInput
 import com.github.damontecres.stashapp.api.type.GenderCriterionInput
 import com.github.damontecres.stashapp.api.type.GenderEnum
+import com.github.damontecres.stashapp.api.type.HierarchicalCountInput
 import com.github.damontecres.stashapp.api.type.HierarchicalMultiCriterionInput
 import com.github.damontecres.stashapp.api.type.IntCriterionInput
 import com.github.damontecres.stashapp.api.type.MultiCriterionInput
@@ -32,6 +33,21 @@ fun IntCriterionInput.toMap(): Map<String, Any> =
                 if (value2.getOrNull() != null) {
                     put("value2", value2.getOrNull()!!)
                 }
+            },
+        )
+    }
+
+fun HierarchicalCountInput.toMap(): Map<String, Any> =
+    buildMap {
+        put("modifier", modifier.rawValue)
+        put(
+            "value",
+            buildMap<String, Any> {
+                put("value", value)
+                if (value2.getOrNull() != null) {
+                    put("value2", value2.getOrNull()!!)
+                }
+                put("depth", depth.getOrNull() ?: 0)
             },
         )
     }

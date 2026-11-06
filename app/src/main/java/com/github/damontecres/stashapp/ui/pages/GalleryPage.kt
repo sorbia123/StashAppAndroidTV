@@ -52,6 +52,7 @@ import com.github.damontecres.stashapp.util.QueryEngine
 import com.github.damontecres.stashapp.util.StashCoroutineExceptionHandler
 import com.github.damontecres.stashapp.util.StashServer
 import com.github.damontecres.stashapp.util.getUiTabs
+import com.github.damontecres.stashapp.util.getUiTabsFromPrefs
 import com.github.damontecres.stashapp.util.name
 import com.github.damontecres.stashapp.util.showSetRatingToast
 import kotlinx.coroutines.launch
@@ -108,7 +109,7 @@ fun GalleryPage(
                 ),
             )
         val uiTabs =
-            getUiTabs(uiConfig.preferences.interfacePreferences.tabPreferences, DataType.GALLERY)
+            getUiTabsFromPrefs(uiConfig.preferences.interfacePreferences.tabPreferences, DataType.GALLERY)
         val tabs =
             listOf(
                 TabProvider(stringResource(R.string.stashapp_details), TabType.DETAILS) {

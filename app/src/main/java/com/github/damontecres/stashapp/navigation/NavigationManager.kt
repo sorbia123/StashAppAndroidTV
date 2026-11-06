@@ -234,8 +234,9 @@ class NavigationManagerLeanback(
                     LicenseFragment()
                 }
 
-                Destination.ChooseTheme -> {
-                    throw IllegalArgumentException("ChooseTheme not supported unless using Compose")
+                Destination.ChooseTheme,
+                Destination.OCountDashboard -> {
+                    throw IllegalArgumentException("ChooseTheme / OCountDashboard not supported unless using Compose")
                 }
             }
 

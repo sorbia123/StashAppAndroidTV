@@ -71,6 +71,7 @@ import com.github.damontecres.stashapp.api.fragment.TagData
 import com.github.damontecres.stashapp.data.VideoFilter
 import com.github.damontecres.stashapp.navigation.NavigationManagerCompose
 import com.github.damontecres.stashapp.playback.maybeMuteAudio
+import com.github.damontecres.stashapp.playback.maybeMuteAudioFromPrefs
 import com.github.damontecres.stashapp.suppliers.FilterArgs
 import com.github.damontecres.stashapp.ui.AppColors
 import com.github.damontecres.stashapp.ui.ComposeUiConfig
@@ -263,7 +264,7 @@ fun ImagePage(
             StashExoPlayer
                 .getInstance(context, server, uiConfig.preferences.playbackPreferences)
                 .apply {
-                    maybeMuteAudio(uiConfig.preferences, false, this)
+                    maybeMuteAudioFromPrefs(uiConfig.preferences, false, this)
                     repeatMode = Player.REPEAT_MODE_OFF
                     playWhenReady = true
                 }

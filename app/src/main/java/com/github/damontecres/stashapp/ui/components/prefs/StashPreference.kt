@@ -111,6 +111,8 @@ sealed interface StashPreference<T> {
                 defaultValue = true,
                 getter = { it.pinPreferences.autoSubmit },
                 setter = { prefs, value ->
+                    val sp = PreferenceManager.getDefaultSharedPreferences(StashApplication.getApplication())
+                    sp.edit().putBoolean("pinCodeAuto", value).apply()
                     prefs.updatePinPreferences { autoSubmit = value }
                 },
             )
@@ -122,6 +124,8 @@ sealed interface StashPreference<T> {
                 description = R.string.set_app_pin_code,
                 getter = { it.pinPreferences.pin },
                 setter = { prefs, value ->
+                    val sp = PreferenceManager.getDefaultSharedPreferences(StashApplication.getApplication())
+                    sp.edit().putString("pinCode", value).apply()
                     prefs.updatePinPreferences { pin = value }
                 },
             )

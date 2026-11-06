@@ -27,7 +27,7 @@ import com.github.damontecres.stashapp.util.SkipParams
 import com.github.damontecres.stashapp.util.StashClient
 import com.github.damontecres.stashapp.util.StashServer
 import com.github.damontecres.stashapp.util.isNotNullOrBlank
-import com.github.damontecres.wholphin.mpv.MpvPlayer
+// import com.github.damontecres.wholphin.mpv.MpvPlayer
 import timber.log.Timber
 
 /**
@@ -106,14 +106,25 @@ class StashExoPlayer private constructor() {
             val httpClient = playbackPreferences.playbackHttpClient
             val debugLogging = playbackPreferences.debugLoggingEnabled
             this.playbackPreferences = playbackPreferences.copy {}
-            return if (playbackPreferences.playbackBackend == PlaybackBackend.MPV) {
-                MpvPlayer(
-                    context,
-                    playbackPreferences.mpvPreferences.hardwareDecoding,
-                    playbackPreferences.mpvPreferences.gpuNext,
-                )
-            } else {
-                val dataSourceFactory =
+            if (playbackPreferences.playbackBackend == PlaybackBackend.MPV) {
+                try {
+                    val mpvClass = Class.forName("com.github.damontecres.wholphin.mpv.MpvPlayer")
+                    val constructor =
+                        mpvClass.getConstructor(
+                            Context::class.java,
+                            Boolean::class.java,
+                            Boolean::class.java,
+                        )
+                    return constructor.newInstance(
+                        context,
+                        playbackPreferences.mpvPreferences.hardwareDecoding,
+                        playbackPreferences.mpvPreferences.gpuNext,
+                    ) as Player
+                } catch (e: Exception) {
+                    Timber.e(e, "MpvPlayer not found, falling back to ExoPlayer")
+                }
+            }
+            val dataSourceFactory =
                     when (httpClient) {
                         PlaybackHttpClient.OKHTTP -> {
                             OkHttpDataSource
@@ -178,7 +189,7 @@ class StashExoPlayer private constructor() {
                         setConstantBitrateSeekingEnabled(true)
                         setConstantBitrateSeekingAlwaysEnabled(true)
                     }
-                ExoPlayer
+                return ExoPlayer
                     .Builder(context)
 //                .setLoadControl(
 //                    DefaultLoadControl
@@ -207,7 +218,6 @@ class StashExoPlayer private constructor() {
                             it.addAnalyticsListener(EventLogger())
                         }
                     }
-            }
         }
 
         @OptIn(UnstableApi::class)
@@ -291,9 +301,14 @@ class StashExoPlayer private constructor() {
 val Player.isReleased: Boolean
     @OptIn(UnstableApi::class)
     get() {
-        return when (this) {
-            is ExoPlayer -> isReleased
-            is MpvPlayer -> isReleased
-            else -> throw IllegalStateException("Unknown Player type: ${this::class.qualifiedName}")
+        if (this is ExoPlayer) return isReleased
+        if (this.javaClass.name == "com.github.damontecres.wholphin.mpv.MpvPlayer") {
+            return try {
+                val method = this.javaClass.getMethod("isReleased")
+                method.invoke(this) as Boolean
+            } catch (e: Exception) {
+                false
+            }
         }
+        throw IllegalStateException("Unknown Player type: ${this::class.qualifiedName}")
     }

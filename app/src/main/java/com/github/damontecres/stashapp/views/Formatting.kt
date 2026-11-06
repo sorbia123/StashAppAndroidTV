@@ -11,6 +11,7 @@ import com.github.damontecres.stashapp.api.type.CircumcisedEnum
 import com.github.damontecres.stashapp.api.type.CriterionModifier
 import com.github.damontecres.stashapp.util.StashServer
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -74,7 +75,7 @@ fun parseTimeToString(ts: Any?): String? =
                 ZonedDateTime.parse(
                     ts.toString(),
                     DateTimeFormatter.ISO_DATE_TIME,
-                )
+                ).withZoneSameInstant(ZoneId.systemDefault())
             dateTime.format(dateTimeFormatter)
         } catch (ex: DateTimeParseException) {
             ts.toString()

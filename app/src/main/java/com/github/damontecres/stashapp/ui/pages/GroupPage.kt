@@ -72,6 +72,7 @@ import com.github.damontecres.stashapp.util.PageFilterKey
 import com.github.damontecres.stashapp.util.QueryEngine
 import com.github.damontecres.stashapp.util.StashServer
 import com.github.damontecres.stashapp.util.getUiTabs
+import com.github.damontecres.stashapp.util.getUiTabsFromPrefs
 import com.github.damontecres.stashapp.util.isNotNullOrBlank
 import com.github.damontecres.stashapp.util.showSetRatingToast
 import kotlinx.coroutines.launch
@@ -343,7 +344,7 @@ fun GroupPage(
             }
 
         val uiTabs =
-            getUiTabs(uiConfig.preferences.interfacePreferences.tabPreferences, DataType.GROUP)
+            getUiTabsFromPrefs(uiConfig.preferences.interfacePreferences.tabPreferences, DataType.GROUP)
         val tabs =
             listOf(
                 detailsTab,

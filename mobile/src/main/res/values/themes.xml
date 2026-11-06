@@ -1,0 +1,7 @@
+<resources>
+    <!-- Mobile specific application theme -->
+    <style name="Theme.StashAppMobile" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:colorBackground">@color/default_background</item>
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay</item>
+    </style>
+</resources>

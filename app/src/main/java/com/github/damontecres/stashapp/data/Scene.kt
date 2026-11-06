@@ -28,6 +28,10 @@ data class Scene(
     val oCounter: Int?,
     val captionUrl: String?,
     val captions: List<Caption>,
+    val playCount: Int? = null,
+    val playHistory: List<Any> = listOf(),
+    val oHistory: List<Any> = listOf(),
+    val lastPlayedAt: Any? = null,
 ) {
     val durationPosition get() = duration?.times(1000L)?.toLong()
 
@@ -61,6 +65,10 @@ data class Scene(
                 oCounter = data.o_counter,
                 captionUrl = data.paths.caption,
                 captions = data.captions?.map { it.caption }.orEmpty(),
+                playCount = data.play_count,
+                playHistory = data.play_history,
+                oHistory = data.o_history,
+                lastPlayedAt = data.last_played_at,
             )
         }
 
@@ -91,6 +99,7 @@ data class Scene(
                 oCounter = data.o_counter,
                 captionUrl = data.paths.caption,
                 captions = data.captions?.map { it.caption }.orEmpty(),
+                lastPlayedAt = data.last_played_at,
             )
         }
 
@@ -129,6 +138,7 @@ data class Scene(
                 oCounter = video.o_counter,
                 captionUrl = video.paths.caption,
                 captions = video.captions?.map { it.caption }.orEmpty(),
+                lastPlayedAt = video.last_played_at,
             )
         }
     }

@@ -21,6 +21,7 @@ import com.github.damontecres.stashapp.ui.components.ItemOnClicker
 import com.github.damontecres.stashapp.ui.components.scene.SceneDescriptionDialog
 import com.github.damontecres.stashapp.ui.components.scene.SceneDetailsFooter
 import com.github.damontecres.stashapp.ui.components.scene.SceneDetailsHeaderInfo
+import com.github.damontecres.stashapp.ui.components.scene.SceneHistoryDialog
 import com.github.damontecres.stashapp.ui.components.scene.sceneDetailsBody
 import com.github.damontecres.stashapp.util.StashServer
 
@@ -39,6 +40,7 @@ fun SceneDetailsOverlay(
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
     var showDetailsDialog by remember { mutableStateOf(false) }
+    var showHistoryDialog by remember { mutableStateOf(false) }
     LazyColumn(
         state = listState,
         contentPadding = PaddingValues(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 135.dp),
@@ -52,6 +54,7 @@ fun SceneDetailsOverlay(
                 uiConfig = uiConfig,
                 itemOnClick = itemOnClick,
                 detailsOnClick = { showDetailsDialog = true },
+                historyOnClick = { showHistoryDialog = true },
                 onRatingChange = onRatingChange,
                 bringIntoViewRequester = bringIntoViewRequester,
                 removeLongClicker = { _, _ -> },
@@ -84,5 +87,11 @@ fun SceneDetailsOverlay(
         show = showDetailsDialog,
         scene = scene,
         onDismissRequest = { showDetailsDialog = false },
+    )
+    SceneHistoryDialog(
+        show = showHistoryDialog,
+        playHistory = scene.play_history,
+        oHistory = scene.o_history,
+        onDismissRequest = { showHistoryDialog = false },
     )
 }
