@@ -60,6 +60,39 @@ class SceneListViewModel : ViewModel() {
         loadNextPage(serverUrl, apiKey, username, password, savedFilter)
     }
 
+    fun refreshSingleScene(
+        sceneId: String,
+        serverUrl: String,
+        apiKey: String,
+        username: String = "",
+        password: String = ""
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val apolloClient = StashMobileClient.createApolloClient(serverUrl, apiKey, username, password)
+                val response = apolloClient.query(
+                    FindScenesQuery(
+                        filter = FindFilterType(per_page = Optional.present(1)),
+                        scene_filter = null,
+                        ids = listOf(sceneId)
+                    )
+                ).execute()
+
+                val fetched = response.data?.findScenes?.scenes?.firstOrNull()?.slimSceneData
+                if (fetched != null) {
+                    val currentList = _state.value.scenes.toMutableList()
+                    val idx = currentList.indexOfFirst { it.id == fetched.id }
+                    if (idx != -1) {
+                        currentList[idx] = fetched
+                        _state.value = _state.value.copy(scenes = currentList)
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to refresh single scene $sceneId")
+            }
+        }
+    }
+
     fun selectSortField(
         sortField: String,
         serverUrl: String,

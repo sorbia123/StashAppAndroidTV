@@ -6,6 +6,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,7 +42,20 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            MaterialTheme {
+            val systemInDark = isSystemInDarkTheme()
+            var currentThemeMode by remember {
+                mutableStateOf(sharedPrefs.getString("app_theme", "system") ?: "system")
+            }
+
+            val isDark = when (currentThemeMode) {
+                "light" -> false
+                "dark" -> true
+                else -> systemInDark
+            }
+
+            val colorScheme = if (isDark) darkColorScheme() else lightColorScheme()
+
+            MaterialTheme(colorScheme = colorScheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -134,20 +148,50 @@ class MainActivity : ComponentActivity() {
                         }
                         showOAnalytics -> {
                             BackHandler(enabled = true) {
-                                showOAnalytics = false
+                                if (selectedScene != null) {
+                                    selectedScene = null
+                                    playQueue = emptyList()
+                                } else {
+                                    showOAnalytics = false
+                                }
                             }
-                            OCountDashboardScreen(
-                                serverUrl = serverUrl,
-                                apiKey = apiKey,
-                                username = username,
-                                password = password,
-                                onNavigateBack = { showOAnalytics = false }
-                            )
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                OCountDashboardScreen(
+                                    serverUrl = serverUrl,
+                                    apiKey = apiKey,
+                                    username = username,
+                                    password = password,
+                                    onNavigateBack = { showOAnalytics = false },
+                                    onSceneClick = { scene ->
+                                        playQueue = listOf(scene)
+                                        selectedScene = scene
+                                    }
+                                )
+
+                                if (selectedScene != null) {
+                                    ScenePlayerScreen(
+                                        serverUrl = serverUrl,
+                                        apiKey = apiKey,
+                                        username = username,
+                                        password = password,
+                                        scene = selectedScene!!,
+                                        playQueue = playQueue,
+                                        initialIndex = 0,
+                                        onBack = {
+                                            selectedScene = null
+                                            playQueue = emptyList()
+                                        }
+                                    )
+                                }
+                            }
                         }
                         showPlaylists -> {
+                            var lastPlayedSceneId by remember { mutableStateOf<String?>(null) }
+
                             BackHandler(enabled = true) {
                                 when {
                                     selectedScene != null -> {
+                                        lastPlayedSceneId = selectedScene?.id
                                         selectedScene = null
                                         playQueue = emptyList()
                                     }
@@ -178,6 +222,7 @@ class MainActivity : ComponentActivity() {
                                         username = username,
                                         password = password,
                                         playlist = selectedPlaylist!!,
+                                        refreshSceneId = lastPlayedSceneId,
                                         onBack = { selectedPlaylist = null },
                                         onSceneClick = { scene ->
                                             playQueue = listOf(scene)
@@ -205,6 +250,7 @@ class MainActivity : ComponentActivity() {
                                         playQueue = playQueue,
                                         initialIndex = playQueue.indexOf(selectedScene).coerceAtLeast(0),
                                         onBack = {
+                                            lastPlayedSceneId = selectedScene?.id
                                             selectedScene = null
                                             playQueue = emptyList()
                                         }
@@ -221,6 +267,10 @@ class MainActivity : ComponentActivity() {
                                 apiKey = apiKey,
                                 username = username,
                                 password = password,
+                                currentTheme = currentThemeMode,
+                                onThemeSelected = { newMode ->
+                                    currentThemeMode = newMode
+                                },
                                 onBack = { showSettings = false },
                                 onServerReconfigured = { _, _, _, _ ->
                                     showSettings = false

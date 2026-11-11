@@ -1,12 +1,14 @@
 package com.github.damontecres.stashapp.mobile.ui.settings
 
 import android.content.Context
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -29,6 +31,8 @@ fun SettingsScreen(
     apiKey: String,
     username: String,
     password: String,
+    currentTheme: String = "system",
+    onThemeSelected: (String) -> Unit = {},
     onBack: () -> Unit,
     onServerReconfigured: (String, String, String, String) -> Unit
 ) {
@@ -36,6 +40,7 @@ fun SettingsScreen(
     val sharedPrefs = remember { context.getSharedPreferences("stash_mobile_prefs", Context.MODE_PRIVATE) }
     
     var currentPin by remember { mutableStateOf(sharedPrefs.getString("pin_code", null)) }
+    var selectedTheme by remember { mutableStateOf(currentTheme) }
     var dialogState by remember { mutableStateOf(PinDialogState.NONE) }
 
     var pinInput by remember { mutableStateOf("") }
@@ -63,6 +68,60 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Theme Card (Light / Dark / System Default)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Appearance Theme",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    val themeOptions = listOf(
+                        "system" to "System Default",
+                        "light" to "Light Mode",
+                        "dark" to "Dark Mode"
+                    )
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        themeOptions.forEach { (mode, label) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        selectedTheme = mode
+                                        sharedPrefs.edit().putString("app_theme", mode).apply()
+                                        onThemeSelected(mode)
+                                    }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = (selectedTheme == mode),
+                                    onClick = {
+                                        selectedTheme = mode
+                                        sharedPrefs.edit().putString("app_theme", mode).apply()
+                                        onThemeSelected(mode)
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // Security Card
             Card(
                 modifier = Modifier.fillMaxWidth(),

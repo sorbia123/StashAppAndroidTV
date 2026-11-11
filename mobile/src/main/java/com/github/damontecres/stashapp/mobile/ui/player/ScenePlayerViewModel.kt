@@ -7,6 +7,8 @@ import com.github.damontecres.stashapp.mobile.api.CreatePerformerMutation
 import com.github.damontecres.stashapp.mobile.api.CreateTagMutation
 import com.github.damontecres.stashapp.mobile.api.FindPerformersQuery
 import com.github.damontecres.stashapp.mobile.api.FindTagsQuery
+import com.github.damontecres.stashapp.mobile.api.SceneAddPlayCountMutation
+import com.github.damontecres.stashapp.mobile.api.SceneSaveActivityMutation
 import com.github.damontecres.stashapp.mobile.api.UpdateSceneMutation
 import com.github.damontecres.stashapp.mobile.api.type.FindFilterType
 import com.github.damontecres.stashapp.mobile.api.type.PerformerCreateInput
@@ -18,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 data class ScenePlayerState(
@@ -31,6 +34,64 @@ data class ScenePlayerState(
 class ScenePlayerViewModel : ViewModel() {
     private val _state = MutableStateFlow(ScenePlayerState())
     val state: StateFlow<ScenePlayerState> = _state.asStateFlow()
+
+    fun recordSceneActivity(
+        serverUrl: String,
+        apiKey: String,
+        username: String = "",
+        password: String = "",
+        sceneId: String,
+        positionMs: Long,
+        durationMs: Long
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val apolloClient = StashMobileClient.createApolloClient(serverUrl, apiKey, username, password)
+                val resumeTimeSec = (positionMs / 1000.0).coerceAtLeast(0.0)
+                val playDurationSec = if (durationMs > 0) durationMs / 1000.0 else null
+
+                apolloClient.mutation(
+                    SceneSaveActivityMutation(
+                        scene_id = sceneId,
+                        resume_time = resumeTimeSec,
+                        play_duration = playDurationSec
+                    )
+                ).execute()
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to record scene activity")
+            }
+        }
+    }
+
+    fun incrementPlayCount(
+        serverUrl: String,
+        apiKey: String,
+        username: String = "",
+        password: String = "",
+        sceneId: String,
+        onSuccess: (Int) -> Unit = {}
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val apolloClient = StashMobileClient.createApolloClient(serverUrl, apiKey, username, password)
+                val response = apolloClient.mutation(
+                    SceneAddPlayCountMutation(
+                        scene_id = sceneId,
+                        times = null
+                    )
+                ).execute()
+
+                val newCount = response.data?.sceneAddPlay?.count
+                if (newCount != null) {
+                    withContext(Dispatchers.Main) {
+                        onSuccess(newCount)
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to increment play count")
+            }
+        }
+    }
 
     fun searchTags(serverUrl: String, apiKey: String, username: String, password: String, query: String) {
         if (query.isBlank()) {

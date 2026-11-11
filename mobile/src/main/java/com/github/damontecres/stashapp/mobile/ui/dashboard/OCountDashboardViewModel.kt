@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.apollographql.apollo.api.Optional
 import com.github.damontecres.stashapp.mobile.api.FindScenesQuery
+import com.github.damontecres.stashapp.mobile.api.fragment.SlimSceneData
 import com.github.damontecres.stashapp.mobile.api.type.CriterionModifier
 import com.github.damontecres.stashapp.mobile.api.type.FindFilterType
 import com.github.damontecres.stashapp.mobile.api.type.IntCriterionInput
@@ -23,14 +24,29 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
+data class OEventGapItem(
+    val index: Int,
+    val dateLabel: String,
+    val date: LocalDate,
+    val gapDays: Int,
+    val scene: SlimSceneData? = null,
+    val isToday: Boolean = false
+)
+
 data class OAnalyticsState(
     val isLoading: Boolean = false,
     val totalOCount: Int = 0,
     val monthlyCounts: Map<String, Int> = emptyMap(),
+    val yearlyMonthlyCounts: Map<Int, Map<Int, Int>> = emptyMap(),
     val timelineEvents: List<Pair<LocalDate, Int>> = emptyList(),
-    val gapEvents: List<Pair<String, Int>> = emptyList(),
+    val gapEvents: List<OEventGapItem> = emptyList(),
     val longestGapDays: Long = 0L,
     val error: String? = null
+)
+
+private data class InternalOEvent(
+    val date: LocalDate,
+    val scene: SlimSceneData
 )
 
 class OCountDashboardViewModel : ViewModel() {
@@ -48,7 +64,6 @@ class OCountDashboardViewModel : ViewModel() {
                 _state.value = _state.value.copy(isLoading = true, error = null)
                 val apolloClient = StashMobileClient.createApolloClient(serverUrl, apiKey, username, password)
 
-                // Filter scenes where o_counter > 0
                 val sceneFilter = SceneFilterType(
                     o_counter = Optional.present(
                         IntCriterionInput(
@@ -79,7 +94,8 @@ class OCountDashboardViewModel : ViewModel() {
 
                 var totalO = 0
                 val monthlyMap = mutableMapOf<String, Int>()
-                val eventDates = mutableListOf<LocalDate>()
+                val yearlyMonthlyMap = mutableMapOf<Int, MutableMap<Int, Int>>()
+                val internalEvents = mutableListOf<InternalOEvent>()
 
                 val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
 
@@ -101,15 +117,17 @@ class OCountDashboardViewModel : ViewModel() {
                             }
 
                             if (eventDate != null) {
-                                eventDates.add(eventDate)
+                                internalEvents.add(InternalOEvent(eventDate, scene))
                                 totalO += 1
 
                                 val yearMonth = String.format(Locale.US, "%d-%02d", eventDate.year, eventDate.monthValue)
                                 monthlyMap[yearMonth] = (monthlyMap[yearMonth] ?: 0) + 1
+
+                                val yearSubMap = yearlyMonthlyMap.getOrPut(eventDate.year) { mutableMapOf() }
+                                yearSubMap[eventDate.monthValue] = (yearSubMap[eventDate.monthValue] ?: 0) + 1
                             }
                         }
                     } else {
-                        // Fallback to scene.date if o_history is unavailable
                         val count = scene.o_counter ?: 0
                         if (count > 0 && !scene.date.isNullOrBlank()) {
                             try {
@@ -117,8 +135,12 @@ class OCountDashboardViewModel : ViewModel() {
                                 totalO += count
                                 val yearMonth = String.format(Locale.US, "%d-%02d", sceneDate.year, sceneDate.monthValue)
                                 monthlyMap[yearMonth] = (monthlyMap[yearMonth] ?: 0) + count
+
+                                val yearSubMap = yearlyMonthlyMap.getOrPut(sceneDate.year) { mutableMapOf() }
+                                yearSubMap[sceneDate.monthValue] = (yearSubMap[sceneDate.monthValue] ?: 0) + count
+
                                 repeat(count) {
-                                    eventDates.add(sceneDate)
+                                    internalEvents.add(InternalOEvent(sceneDate, scene))
                                 }
                             } catch (e: Exception) {
                                 // ignore
@@ -127,13 +149,13 @@ class OCountDashboardViewModel : ViewModel() {
                     }
                 }
 
-                // Sort event dates chronologically for gap calculation
-                eventDates.sort()
+                // Sort chronologically
+                internalEvents.sortBy { it.date }
 
-                // Generate continuous calendar months from first event month to current month
+                // Continuous monthly map
                 val continuousMonthlyMap = mutableMapOf<String, Int>()
-                if (eventDates.isNotEmpty()) {
-                    var currentYM = YearMonth.from(eventDates.first())
+                if (internalEvents.isNotEmpty()) {
+                    var currentYM = YearMonth.from(internalEvents.first().date)
                     val endYM = YearMonth.from(LocalDate.now())
                     while (!currentYM.isAfter(endYM)) {
                         val key = String.format(Locale.US, "%d-%02d", currentYM.year, currentYM.monthValue)
@@ -142,34 +164,70 @@ class OCountDashboardViewModel : ViewModel() {
                     }
                 }
 
-                val sortedMonthly = continuousMonthlyMap.entries.sortedByDescending { it.key }.associate { it.key to it.value }
+                val sortedMonthly = continuousMonthlyMap.entries.sortedBy { it.key }.associate { it.key to it.value }
 
-                // Calculate gaps (in days) between consecutive O event dates
-                val uniqueDates = eventDates.distinct()
-                val gapList = mutableListOf<Pair<String, Int>>()
+                // Calculate gap items starting with first event (0 days gap) and ending with Today (last event + 1 count)
+                val gapItems = mutableListOf<OEventGapItem>()
                 var maxGap = 0L
 
-                for (i in uniqueDates.indices) {
-                    val gap = if (i == 0) 0L else ChronoUnit.DAYS.between(uniqueDates[i - 1], uniqueDates[i])
-                    if (gap > maxGap) {
-                        maxGap = gap
+                val displayFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US)
+
+                if (internalEvents.isNotEmpty()) {
+                    // Point 1: First event with 0 days gap
+                    val firstEvent = internalEvents.first()
+                    gapItems.add(
+                        OEventGapItem(
+                            index = 1,
+                            dateLabel = firstEvent.date.format(displayFormatter),
+                            date = firstEvent.date,
+                            gapDays = 0,
+                            scene = firstEvent.scene
+                        )
+                    )
+
+                    // Subsequent events and their gaps from previous event
+                    for (i in 1 until internalEvents.size) {
+                        val prev = internalEvents[i - 1]
+                        val curr = internalEvents[i]
+                        val gap = ChronoUnit.DAYS.between(prev.date, curr.date)
+                        if (gap > maxGap) maxGap = gap
+                        gapItems.add(
+                            OEventGapItem(
+                                index = i + 1,
+                                dateLabel = curr.date.format(displayFormatter),
+                                date = curr.date,
+                                gapDays = gap.toInt(),
+                                scene = curr.scene
+                            )
+                        )
                     }
-                    if (i > 0) {
-                        gapList.add(uniqueDates[i].toString() to gap.toInt())
-                    }
+
+                    // Point Today: Last event + 1 count, days since last event till today
+                    val lastEvent = internalEvents.last()
+                    val todayGap = ChronoUnit.DAYS.between(lastEvent.date, LocalDate.now())
+                    if (todayGap > maxGap) maxGap = todayGap
+                    gapItems.add(
+                        OEventGapItem(
+                            index = internalEvents.size + 1,
+                            dateLabel = "Today (${LocalDate.now().format(displayFormatter)})",
+                            date = LocalDate.now(),
+                            gapDays = todayGap.toInt(),
+                            scene = lastEvent.scene,
+                            isToday = true
+                        )
+                    )
                 }
 
-                val sortedGapEvents = gapList.sortedByDescending { it.first }
-
-                val timelineGrouped = eventDates.groupBy { it }.mapValues { entry -> entry.value.size }
+                val timelineGrouped = internalEvents.groupBy { it.date }.mapValues { entry -> entry.value.size }
                 val timelineList = timelineGrouped.entries.sortedByDescending { it.key }.map { it.key to it.value }
 
                 _state.value = OAnalyticsState(
                     isLoading = false,
                     totalOCount = totalO,
                     monthlyCounts = sortedMonthly,
+                    yearlyMonthlyCounts = yearlyMonthlyMap,
                     timelineEvents = timelineList,
-                    gapEvents = sortedGapEvents,
+                    gapEvents = gapItems,
                     longestGapDays = maxGap
                 )
             } catch (e: Exception) {

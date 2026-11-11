@@ -150,8 +150,8 @@ class OCountDashboardViewModel : ViewModel() {
                     }
                 }
 
-                // Sort gap events descending (latest on the left)
-                val sortedGapEvents = gapList.sortedByDescending { it.first }
+                // Sort gap events chronologically (oldest on the left, newest on the right)
+                val sortedGapEvents = gapList.sortedBy { it.first }
 
                 // Build timeline events descending (latest on the left)
                 val timelineGrouped = eventDates.groupBy { it }.mapValues { entry -> entry.value.size }

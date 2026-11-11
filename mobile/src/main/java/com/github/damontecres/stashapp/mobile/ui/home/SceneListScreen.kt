@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -39,7 +40,30 @@ import com.github.damontecres.stashapp.mobile.util.formatDuration
 import com.github.damontecres.stashapp.mobile.util.formatResolution
 import com.github.damontecres.stashapp.mobile.util.titleOrFilename
 import kotlinx.coroutines.delay
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlin.time.Duration.Companion.milliseconds
+
+fun formatSceneDate(dateString: String?): String {
+    if (dateString.isNullOrBlank()) return ""
+    return try {
+        val inputStr = dateString.trim()
+        if (inputStr.contains("T")) {
+            val instant = Instant.parse(inputStr)
+            val zdt = instant.atZone(ZoneId.systemDefault())
+            zdt.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))
+        } else if (inputStr.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) {
+            val localDate = LocalDate.parse(inputStr)
+            localDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))
+        } else {
+            inputStr
+        }
+    } catch (e: Exception) {
+        dateString.take(10)
+    }
+}
 
 @Composable
 fun BackArrowIcon(
@@ -150,6 +174,7 @@ fun SceneListScreen(
     username: String = "",
     password: String = "",
     playlist: PlaylistUiItem,
+    refreshSceneId: String? = null,
     onBack: () -> Unit,
     onSceneClick: (SlimSceneData) -> Unit,
     onPlayAll: (List<SlimSceneData>) -> Unit,
@@ -166,8 +191,19 @@ fun SceneListScreen(
         viewModel.refresh(serverUrl, apiKey, username, password, playlist.savedFilter)
     }
 
+    LaunchedEffect(refreshSceneId) {
+        if (!refreshSceneId.isNullOrBlank()) {
+            viewModel.refreshSingleScene(refreshSceneId, serverUrl, apiKey, username, password)
+        }
+    }
+
     // Debounced server search query
+    var isInitialSearch by remember { mutableStateOf(true) }
     LaunchedEffect(searchQuery) {
+        if (isInitialSearch) {
+            isInitialSearch = false
+            return@LaunchedEffect
+        }
         delay(400.milliseconds)
         viewModel.searchScenes(searchQuery, serverUrl, apiKey, username, password, playlist.savedFilter)
     }
@@ -301,7 +337,7 @@ fun SceneListScreen(
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
-                            label = { Text("Search all available items...") },
+                            label = { Text("Search scenes...") },
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -320,9 +356,7 @@ fun SceneListScreen(
                         } else {
                             LazyColumn(
                                 state = listState,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 16.dp),
+                                modifier = Modifier.fillMaxSize(),
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
                                 contentPadding = PaddingValues(bottom = 60.dp)
                             ) {
@@ -424,14 +458,15 @@ fun SceneCard(
     val videoFile = scene.files.firstOrNull()?.videoFile
     val durationText = formatDuration(videoFile?.duration)
     val resolutionText = formatResolution(videoFile?.height)
-    val fileModDate = videoFile?.mod_time?.toString() ?: scene.date ?: ""
+    val formattedDate = formatSceneDate(scene.date ?: videoFile?.mod_time?.toString())
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
+        shape = RectangleShape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
         Column(
@@ -441,7 +476,7 @@ fun SceneCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
-                    .background(MaterialTheme.colorScheme.surface)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 if (mediaUrlToLoad.isNotBlank()) {
                     val request = ImageRequest.Builder(context)
@@ -535,7 +570,7 @@ fun SceneCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp)
+                    .padding(16.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -545,10 +580,9 @@ fun SceneCard(
                     Text(
                         text = scene.titleOrFilename,
                         style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        modifier = Modifier.weight(1f)
                     )
 
                     Box {
@@ -591,23 +625,17 @@ fun SceneCard(
                         Spacer(modifier = Modifier.width(1.dp))
                     }
 
-                    if (fileModDate.isNotBlank()) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            DownloadIcon()
-                            Text(
-                                text = fileModDate,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            )
-                        }
+                    if (formattedDate.isNotBlank()) {
+                        Text(
+                            text = formattedDate,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
                     }
                 }
 
                 if (scene.performers.isNotEmpty() || scene.tags.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -648,9 +676,8 @@ fun SceneCard(
                         Text(text = "Path: ${videoFile.path}", style = MaterialTheme.typography.bodySmall)
                         Text(text = "Resolution: ${videoFile.width}x${videoFile.height}", style = MaterialTheme.typography.bodySmall)
                         Text(text = "Codec: ${videoFile.video_codec} / ${videoFile.audio_codec}", style = MaterialTheme.typography.bodySmall)
-                        Text(text = "File Mod Time: ${videoFile.mod_time}", style = MaterialTheme.typography.bodySmall)
                     }
-                    Text(text = "Date: ${scene.date ?: "N/A"}", style = MaterialTheme.typography.bodySmall)
+                    Text(text = "Date: ${formattedDate.ifBlank { "N/A" }}", style = MaterialTheme.typography.bodySmall)
                     Text(text = "Play Count: ${scene.play_count ?: 0} | O Count: ${scene.o_counter ?: 0}", style = MaterialTheme.typography.bodySmall)
                     Button(
                         onClick = { showMetadataSheet = false },

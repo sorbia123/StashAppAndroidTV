@@ -1,0 +1,17 @@
+mutation SceneSaveActivity($scene_id: ID!, $resume_time: Float!, $play_duration: Float) {
+    sceneSaveActivity(id: $scene_id, resume_time: $resume_time, playDuration: $play_duration)
+}
+
+mutation SceneAddPlayCount($scene_id: ID!, $times: [Timestamp!]) {
+    sceneAddPlay(id: $scene_id, times: $times) {
+        count
+        history
+    }
+}
+
+mutation SceneAddO($scene_id: ID!, $times: [Timestamp!]) {
+    sceneAddO(id: $scene_id, times: $times) {
+        count
+        history
+    }
+}
