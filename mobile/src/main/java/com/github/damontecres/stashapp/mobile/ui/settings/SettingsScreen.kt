@@ -41,6 +41,7 @@ fun SettingsScreen(
     
     var currentPin by remember { mutableStateOf(sharedPrefs.getString("pin_code", null)) }
     var selectedTheme by remember { mutableStateOf(currentTheme) }
+    var autoPlayPreviews by remember { mutableStateOf(sharedPrefs.getBoolean("auto_play_video_previews", true)) }
     var dialogState by remember { mutableStateOf(PinDialogState.NONE) }
 
     var pinInput by remember { mutableStateOf("") }
@@ -68,6 +69,40 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Video Previews Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Auto-play Video Previews",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Automatically play video previews on scene cards when list scrolling stops",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = autoPlayPreviews,
+                        onCheckedChange = { checked ->
+                            autoPlayPreviews = checked
+                            sharedPrefs.edit().putBoolean("auto_play_video_previews", checked).apply()
+                        }
+                    )
+                }
+            }
+
             // Theme Card (Light / Dark / System Default)
             Card(
                 modifier = Modifier.fillMaxWidth(),

@@ -216,8 +216,16 @@ fun VideoPlayerContainer(
                     }
                 })
 
-                val touchListener = android.view.View.OnTouchListener { _, event ->
-                    gestureDetector.onTouchEvent(event)
+                val touchListener = android.view.View.OnTouchListener { view, event ->
+                    if (view is androidx.media3.ui.DefaultTimeBar || view is android.widget.ImageButton || view is android.widget.ImageView) {
+                        false
+                    } else {
+                        val consumed = gestureDetector.onTouchEvent(event)
+                        if (event.action == MotionEvent.ACTION_UP) {
+                            view.performClick()
+                        }
+                        consumed
+                    }
                 }
 
                 fun attachTouchListener(v: android.view.View) {

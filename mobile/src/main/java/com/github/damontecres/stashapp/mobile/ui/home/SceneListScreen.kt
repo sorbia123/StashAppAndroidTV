@@ -1,20 +1,28 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.media3.common.util.UnstableApi::class
+)
 
 package com.github.damontecres.stashapp.mobile.ui.home
 
+import android.content.Context
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -27,6 +35,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.ui.compose.PlayerSurface
+import androidx.media3.ui.compose.modifiers.resizeWithContentScale
+import androidx.media3.ui.compose.state.rememberPresentationState
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
@@ -164,6 +180,38 @@ fun MoreVertIcon(
         drawCircle(color = color, radius = radius, center = Offset(cx, h * 0.25f))
         drawCircle(color = color, radius = radius, center = Offset(cx, h * 0.5f))
         drawCircle(color = color, radius = radius, center = Offset(cx, h * 0.75f))
+    }
+}
+
+@Composable
+fun PlayPreviewIcon(
+    modifier: Modifier = Modifier,
+    color: Color = Color.White
+) {
+    Canvas(modifier = modifier.size(16.dp)) {
+        val w = size.width
+        val h = size.height
+        val path = Path().apply {
+            moveTo(w * 0.25f, h * 0.15f)
+            lineTo(w * 0.85f, h * 0.5f)
+            lineTo(w * 0.25f, h * 0.85f)
+            close()
+        }
+        drawPath(path, color = color)
+    }
+}
+
+@Composable
+fun PausePreviewIcon(
+    modifier: Modifier = Modifier,
+    color: Color = Color.White
+) {
+    Canvas(modifier = modifier.size(16.dp)) {
+        val w = size.width
+        val h = size.height
+        val barWidth = w * 0.25f
+        drawRect(color = color, topLeft = Offset(w * 0.15f, h * 0.15f), size = androidx.compose.ui.geometry.Size(barWidth, h * 0.7f))
+        drawRect(color = color, topLeft = Offset(w * 0.6f, h * 0.15f), size = androidx.compose.ui.geometry.Size(barWidth, h * 0.7f))
     }
 }
 
@@ -354,6 +402,24 @@ fun SceneListScreen(
                                 Text("No scenes found", style = MaterialTheme.typography.bodyLarge)
                             }
                         } else {
+                            val activeItemIndex by remember {
+                                derivedStateOf {
+                                    val layoutInfo = listState.layoutInfo
+                                    val visibleItems = layoutInfo.visibleItemsInfo
+                                    if (visibleItems.isEmpty()) {
+                                        -1
+                                    } else if (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 200) {
+                                        0
+                                    } else {
+                                        val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+                                        visibleItems.minByOrNull { item ->
+                                            val itemCenter = item.offset + item.size / 2
+                                            kotlin.math.abs(itemCenter - viewportCenter)
+                                        }?.index ?: -1
+                                    }
+                                }
+                            }
+
                             LazyColumn(
                                 state = listState,
                                 modifier = Modifier.fillMaxSize(),
@@ -367,12 +433,15 @@ fun SceneListScreen(
                                         }
                                     }
 
+                                    val isCentered = (index == activeItemIndex)
+
                                     SceneCard(
                                         scene = scene,
                                         serverUrl = serverUrl,
                                         apiKey = apiKey,
                                         username = username,
                                         password = password,
+                                        isCentered = isCentered,
                                         onClick = { onSceneClick(scene) }
                                     )
                                 }
@@ -430,11 +499,25 @@ fun SceneCard(
     apiKey: String = "",
     username: String = "",
     password: String = "",
+    isCentered: Boolean = false,
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val sharedPrefs = remember { context.getSharedPreferences("stash_mobile_prefs", Context.MODE_PRIVATE) }
+    val autoPlayEnabled = remember { sharedPrefs.getBoolean("auto_play_video_previews", true) }
+
     var showCardMenu by remember { mutableStateOf(false) }
     var showMetadataSheet by remember { mutableStateOf(false) }
+    var isPlayingPreview by remember { mutableStateOf(false) }
+    var isMuted by remember { mutableStateOf(true) }
+    var isManuallyStopped by remember { mutableStateOf(false) }
+
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocusedByInteraction by interactionSource.collectIsFocusedAsState()
+    var isCardFocused by remember { mutableStateOf(false) }
+    val isFocused = isFocusedByInteraction || isCardFocused
+
+    val shouldAutoPlay = autoPlayEnabled && (isFocused || isCentered) && !isManuallyStopped
 
     val primaryPath = when {
         !scene.paths.screenshot.isNullOrBlank() -> scene.paths.screenshot
@@ -442,6 +525,26 @@ fun SceneCard(
         else -> "/scene/${scene.id}/screenshot"
     }
     val mediaUrlToLoad = fixStashMediaUrl(primaryPath, serverUrl, apiKey)
+
+    val previewPath = scene.paths.preview
+    val previewUrlToLoad = if (!previewPath.isNullOrBlank()) {
+        fixStashMediaUrl(previewPath, serverUrl, apiKey)
+    } else null
+
+    LaunchedEffect(isCentered) {
+        if (!isCentered) {
+            isManuallyStopped = false
+        }
+    }
+
+    LaunchedEffect(shouldAutoPlay, previewUrlToLoad) {
+        if (shouldAutoPlay && !previewUrlToLoad.isNullOrBlank()) {
+            delay(400)
+            isPlayingPreview = true
+        } else if (!shouldAutoPlay) {
+            isPlayingPreview = false
+        }
+    }
 
     val imageLoader = remember(serverUrl, apiKey, username, password) {
         ImageLoader.Builder(context)
@@ -460,10 +563,47 @@ fun SceneCard(
     val resolutionText = formatResolution(videoFile?.height)
     val formattedDate = formatSceneDate(scene.date ?: videoFile?.mod_time?.toString())
 
+    val okHttpClient = remember(apiKey, username, password) {
+        StashMobileClient.createOkHttpClient(apiKey, username, password)
+    }
+
+    val player = remember(context, previewUrlToLoad, isPlayingPreview, okHttpClient) {
+        if (isPlayingPreview && !previewUrlToLoad.isNullOrBlank()) {
+            val dataSourceFactory = OkHttpDataSource.Factory(okHttpClient)
+            val mediaSource = ProgressiveMediaSource.Factory(dataSourceFactory)
+                .createMediaSource(MediaItem.fromUri(previewUrlToLoad))
+            ExoPlayer.Builder(context).build().apply {
+                setMediaSource(mediaSource)
+                repeatMode = Player.REPEAT_MODE_ALL
+                volume = if (isMuted) 0f else 1f
+                prepare()
+                playWhenReady = true
+            }
+        } else {
+            null
+        }
+    }
+
+    LaunchedEffect(player, isMuted) {
+        player?.volume = if (isMuted) 0f else 1f
+    }
+
+    DisposableEffect(player) {
+        onDispose {
+            player?.stop()
+            player?.release()
+        }
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .onFocusChanged { isCardFocused = it.isFocused }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
         shape = RectangleShape,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -476,21 +616,60 @@ fun SceneCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .background(Color.Black),
+                contentAlignment = Alignment.Center
             ) {
-                if (mediaUrlToLoad.isNotBlank()) {
-                    val request = ImageRequest.Builder(context)
-                        .data(mediaUrlToLoad)
-                        .crossfade(true)
-                        .build()
+                if (isPlayingPreview && player != null) {
+                    val presentationState = rememberPresentationState(player)
+                    val scaledModifier = Modifier.resizeWithContentScale(ContentScale.Fit, presentationState.videoSizeDp)
 
-                    AsyncImage(
-                        model = request,
-                        imageLoader = imageLoader,
-                        contentDescription = scene.titleOrFilename,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
+                    PlayerSurface(
+                        player = player,
+                        modifier = scaledModifier
                     )
+                }
+
+                val presentationState = rememberPresentationState(player)
+                if (!isPlayingPreview || player == null || presentationState.coverSurface) {
+                    if (mediaUrlToLoad.isNotBlank()) {
+                        val request = ImageRequest.Builder(context)
+                            .data(mediaUrlToLoad)
+                            .crossfade(true)
+                            .build()
+
+                        AsyncImage(
+                            model = request,
+                            imageLoader = imageLoader,
+                            contentDescription = scene.titleOrFilename,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+
+                if (!previewUrlToLoad.isNullOrBlank()) {
+                    val buttonAlpha = if (isPlayingPreview) 0.2f else 0.7f
+                    val iconAlpha = if (isPlayingPreview) 0.4f else 1.0f
+
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .clickable {
+                                val nextState = !isPlayingPreview
+                                isPlayingPreview = nextState
+                                isManuallyStopped = !nextState
+                            },
+                        color = Color.Black.copy(alpha = buttonAlpha),
+                        shape = CircleShape
+                    ) {
+                        Box(modifier = Modifier.padding(10.dp)) {
+                            if (isPlayingPreview) {
+                                PausePreviewIcon(color = Color.White.copy(alpha = iconAlpha))
+                            } else {
+                                PlayPreviewIcon(color = Color.White.copy(alpha = iconAlpha))
+                            }
+                        }
+                    }
                 }
 
                 if (resolutionText.isNotBlank()) {
@@ -596,6 +775,15 @@ fun SceneCard(
                             expanded = showCardMenu,
                             onDismissRequest = { showCardMenu = false }
                         ) {
+                            if (!previewUrlToLoad.isNullOrBlank()) {
+                                DropdownMenuItem(
+                                    text = { Text(if (isPlayingPreview) "Stop Video Preview" else "Play Video Preview") },
+                                    onClick = {
+                                        showCardMenu = false
+                                        isPlayingPreview = !isPlayingPreview
+                                    }
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text("View Metadata") },
                                 onClick = {
