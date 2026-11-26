@@ -223,6 +223,7 @@ fun SceneListScreen(
     password: String = "",
     playlist: PlaylistUiItem? = null,
     tagId: String? = null,
+    performerId: String? = null,
     refreshSceneId: String? = null,
     onBack: () -> Unit,
     onSceneClick: (SlimSceneData) -> Unit,
@@ -236,8 +237,8 @@ fun SceneListScreen(
     var showOverflowMenu by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
-    LaunchedEffect(playlist?.id, tagId) {
-        viewModel.refresh(serverUrl, apiKey, username, password, playlist?.savedFilter, tagId)
+    LaunchedEffect(playlist?.id, tagId, performerId) {
+        viewModel.refresh(serverUrl, apiKey, username, password, playlist?.savedFilter, tagId, performerId)
     }
 
     LaunchedEffect(refreshSceneId) {
@@ -430,7 +431,7 @@ fun SceneListScreen(
                                 itemsIndexed(state.scenes) { index, scene ->
                                     if (state.scenes.isNotEmpty() && index >= state.scenes.size - 3 && state.canLoadMore && !state.isFetchingNextPage) {
                                         LaunchedEffect(index) {
-                                            viewModel.loadNextPage(serverUrl, apiKey, username, password, playlist?.savedFilter, tagId)
+                                            viewModel.loadNextPage(serverUrl, apiKey, username, password, playlist?.savedFilter, tagId, performerId)
                                         }
                                     }
 

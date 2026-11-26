@@ -41,7 +41,8 @@ class SceneListViewModel : ViewModel() {
         username: String = "",
         password: String = "",
         savedFilter: FindSavedFiltersQuery.FindSavedFilter? = null,
-        tagId: String? = null
+        tagId: String? = null,
+        performerId: String? = null
     ) {
         val savedFind = savedFilter?.savedFilter?.find_filter
         val initialSort = savedFind?.sort ?: "date"
@@ -58,7 +59,7 @@ class SceneListViewModel : ViewModel() {
             searchQuery = initialQuery,
             scenes = emptyList()
         )
-        loadNextPage(serverUrl, apiKey, username, password, savedFilter, tagId)
+        loadNextPage(serverUrl, apiKey, username, password, savedFilter, tagId, performerId)
     }
 
     fun refreshSingleScene(
@@ -198,7 +199,8 @@ class SceneListViewModel : ViewModel() {
         username: String = "",
         password: String = "",
         savedFilter: FindSavedFiltersQuery.FindSavedFilter? = null,
-        tagId: String? = null
+        tagId: String? = null,
+        performerId: String? = null
     ) {
         if (_state.value.isFetchingNextPage || !_state.value.canLoadMore) return
 
@@ -212,10 +214,10 @@ class SceneListViewModel : ViewModel() {
                 val objectFilter = savedFilter?.savedFilter?.object_filter
                 val baseSceneFilter = FilterParser.convertSceneFilterType(objectFilter)
 
-                val sceneFilter = if (tagId != null) {
-                    FilterParser.convertSceneFilterType(mapOf("tags" to mapOf("value" to listOf(tagId), "modifier" to "INCLUDES")))
-                } else {
-                    baseSceneFilter
+                val sceneFilter = when {
+                    performerId != null -> FilterParser.convertSceneFilterType(mapOf("performers" to mapOf("value" to listOf(performerId), "modifier" to "INCLUDES")))
+                    tagId != null -> FilterParser.convertSceneFilterType(mapOf("tags" to mapOf("value" to listOf(tagId), "modifier" to "INCLUDES")))
+                    else -> baseSceneFilter
                 }
 
                 val effectiveSort = _state.value.activeSort

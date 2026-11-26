@@ -23,6 +23,7 @@ import com.github.damontecres.stashapp.mobile.ui.onboarding.ServerSetupScreen
 import com.github.damontecres.stashapp.mobile.ui.player.ScenePlayerScreen
 import com.github.damontecres.stashapp.mobile.ui.settings.SettingsScreen
 import com.github.damontecres.stashapp.mobile.ui.settings.TagManagerScreen
+import com.github.damontecres.stashapp.mobile.ui.settings.PerformerManagerScreen
 
 class MainActivity : ComponentActivity() {
     private val isAppLockedState = mutableStateOf(false)
@@ -104,6 +105,15 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf<String?>(null)
                     }
                     var selectedTagName by remember {
+                        mutableStateOf<String?>(null)
+                    }
+                    var showPerformerManager by remember {
+                        mutableStateOf(false)
+                    }
+                    var selectedPerformerId by remember {
+                        mutableStateOf<String?>(null)
+                    }
+                    var selectedPerformerName by remember {
                         mutableStateOf<String?>(null)
                     }
                     var showSettings by remember {
@@ -353,13 +363,78 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+                        selectedPerformerId != null -> {
+                            BackHandler(enabled = true) {
+                                selectedPerformerId = null
+                                selectedPerformerName = null
+                            }
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                SceneListScreen(
+                                    serverUrl = serverUrl,
+                                    apiKey = apiKey,
+                                    username = username,
+                                    password = password,
+                                    playlist = null,
+                                    performerId = selectedPerformerId,
+                                    onBack = {
+                                        selectedPerformerId = null
+                                        selectedPerformerName = null
+                                    },
+                                    onSceneClick = { scene ->
+                                        playQueue = listOf(scene)
+                                        selectedScene = scene
+                                    },
+                                    onPlayAll = { scenes ->
+                                        playQueue = scenes
+                                        scenes.firstOrNull()?.let { selectedScene = it }
+                                    },
+                                    onPlayRandom = { scenes ->
+                                        val shuffled = scenes.shuffled()
+                                        playQueue = shuffled
+                                        shuffled.firstOrNull()?.let { selectedScene = it }
+                                    }
+                                )
+
+                                if (selectedScene != null) {
+                                    ScenePlayerScreen(
+                                        serverUrl = serverUrl,
+                                        apiKey = apiKey,
+                                        username = username,
+                                        password = password,
+                                        scene = selectedScene!!,
+                                        playQueue = playQueue,
+                                        initialIndex = playQueue.indexOf(selectedScene).coerceAtLeast(0),
+                                        onBack = {
+                                            selectedScene = null
+                                            playQueue = emptyList()
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        showPerformerManager -> {
+                            BackHandler(enabled = true) {
+                                showPerformerManager = false
+                            }
+                            PerformerManagerScreen(
+                                serverUrl = serverUrl,
+                                apiKey = apiKey,
+                                username = username,
+                                password = password,
+                                onBack = { showPerformerManager = false },
+                                onPerformerClick = { performerId, performerName ->
+                                    selectedPerformerId = performerId
+                                    selectedPerformerName = performerName
+                                }
+                            )
+                        }
                         else -> {
                             AppHomeScreen(
                                 serverUrl = serverUrl,
                                 onNavigateToPlaylists = { showPlaylists = true },
                                 onNavigateToOAnalytics = { showOAnalytics = true },
                                 onNavigateToTags = { showTagManager = true },
-                                onNavigateToPerformers = { /* Performer Manager */ },
+                                onNavigateToPerformers = { showPerformerManager = true },
                                 onNavigateToSettings = { showSettings = true }
                             )
                         }

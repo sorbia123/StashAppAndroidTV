@@ -1,0 +1,6 @@
+mutation PerformerUpdate($input: PerformerUpdateInput!) {
+    performerUpdate(input: $input) {
+        id
+        name
+    }
+}
