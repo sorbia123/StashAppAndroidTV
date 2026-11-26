@@ -81,7 +81,7 @@ fun TagManagerScreen(
     var showQuickAddSuggestions by remember { mutableStateOf(false) }
 
     // All Tags search & sort state
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by remember { mutableStateOf(state.searchQuery) }
     var showSortMenu by remember { mutableStateOf(false) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var newTagNameInput by remember { mutableStateOf("") }
