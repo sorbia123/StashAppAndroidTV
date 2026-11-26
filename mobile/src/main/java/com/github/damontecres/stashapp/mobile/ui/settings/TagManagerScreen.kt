@@ -1,6 +1,7 @@
 package com.github.damontecres.stashapp.mobile.ui.settings
 
 import android.content.Context
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,6 +12,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -25,13 +28,28 @@ import com.github.damontecres.stashapp.mobile.api.type.TagUpdateInput
 import com.github.damontecres.stashapp.mobile.api.type.SortDirectionEnum
 import com.github.damontecres.stashapp.mobile.net.StashMobileClient
 import com.github.damontecres.stashapp.mobile.ui.home.BackArrowIcon
-import com.github.damontecres.stashapp.mobile.ui.home.DirectionArrowIcon
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import kotlin.time.Duration.Companion.milliseconds
+
+@Composable
+fun MoreVertIcon(
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.onSurface
+) {
+    Canvas(modifier = modifier.size(24.dp)) {
+        val radius = 2.dp.toPx()
+        val w = size.width
+        val h = size.height
+        val cx = w * 0.5f
+        drawCircle(color = color, radius = radius, center = Offset(cx, h * 0.25f))
+        drawCircle(color = color, radius = radius, center = Offset(cx, h * 0.5f))
+        drawCircle(color = color, radius = radius, center = Offset(cx, h * 0.75f))
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,49 +122,51 @@ fun TagManagerScreen(
                     },
                     actions = {
                         if (selectedTab == 1) {
-                            IconButton(
-                                onClick = {
-                                    viewModel.updateSort(state.activeSort, serverUrl, apiKey, username, password)
-                                }
-                            ) {
-                                DirectionArrowIcon(isDescending = state.activeDirection == SortDirectionEnum.DESC)
+                            IconButton(onClick = { showSortMenu = true }) {
+                                MoreVertIcon()
                             }
-
-                            Box {
-                                TextButton(onClick = { showSortMenu = true }) {
-                                    Text("Sort: ${state.activeSort}")
-                                }
-                                DropdownMenu(
-                                    expanded = showSortMenu,
-                                    onDismissRequest = { showSortMenu = false }
-                                ) {
-                                    val sortOptions = listOf(
-                                        "name" to "Name",
-                                        "created_at" to "Date Added",
-                                        "updated_at" to "Updated At",
-                                        "scene_count" to "Scene Count",
-                                        "random" to "Random"
-                                    )
-                                    sortOptions.forEach { (key, label) ->
-                                        DropdownMenuItem(
-                                            text = { Text(label) },
-                                            onClick = {
-                                                showSortMenu = false
-                                                viewModel.updateSort(key, serverUrl, apiKey, username, password)
-                                            }
-                                        )
+                            DropdownMenu(
+                                expanded = showSortMenu,
+                                onDismissRequest = { showSortMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(if (state.activeDirection == SortDirectionEnum.DESC) "Direction: Descending" else "Direction: Ascending") },
+                                    onClick = {
+                                        showSortMenu = false
+                                        viewModel.updateSort(state.activeSort, serverUrl, apiKey, username, password)
                                     }
+                                )
+                                HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = { Text("Sort By", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary) },
+                                    onClick = {}
+                                )
+                                val sortOptions = listOf(
+                                    "name" to "Name",
+                                    "created_at" to "Date Added",
+                                    "updated_at" to "Updated At",
+                                    "scene_count" to "Scene Count",
+                                    "random" to "Random"
+                                )
+                                sortOptions.forEach { (key, label) ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text(label)
+                                                if (state.activeSort == key) {
+                                                    Text("✓", color = MaterialTheme.colorScheme.primary)
+                                                }
+                                            }
+                                        },
+                                        onClick = {
+                                            showSortMenu = false
+                                            viewModel.updateSort(key, serverUrl, apiKey, username, password)
+                                        }
+                                    )
                                 }
-                            }
-
-                            Button(
-                                onClick = {
-                                    newTagNameInput = ""
-                                    showCreateDialog = true
-                                },
-                                modifier = Modifier.padding(end = 8.dp)
-                            ) {
-                                Text("New Tag")
                             }
                         }
                     }
@@ -162,6 +182,18 @@ fun TagManagerScreen(
                         onClick = { selectedTab = 1 },
                         text = { Text("All Tags (${state.totalCount})") }
                     )
+                }
+            }
+        },
+        floatingActionButton = {
+            if (selectedTab == 1) {
+                FloatingActionButton(
+                    onClick = {
+                        newTagNameInput = ""
+                        showCreateDialog = true
+                    }
+                ) {
+                    Text("+ New")
                 }
             }
         }
