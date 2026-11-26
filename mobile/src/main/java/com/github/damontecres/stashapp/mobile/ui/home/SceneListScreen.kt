@@ -221,7 +221,8 @@ fun SceneListScreen(
     apiKey: String,
     username: String = "",
     password: String = "",
-    playlist: PlaylistUiItem,
+    playlist: PlaylistUiItem? = null,
+    tagId: String? = null,
     refreshSceneId: String? = null,
     onBack: () -> Unit,
     onSceneClick: (SlimSceneData) -> Unit,
@@ -235,8 +236,8 @@ fun SceneListScreen(
     var showOverflowMenu by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
-    LaunchedEffect(playlist.id) {
-        viewModel.refresh(serverUrl, apiKey, username, password, playlist.savedFilter)
+    LaunchedEffect(playlist?.id, tagId) {
+        viewModel.refresh(serverUrl, apiKey, username, password, playlist?.savedFilter, tagId)
     }
 
     LaunchedEffect(refreshSceneId) {
@@ -253,7 +254,7 @@ fun SceneListScreen(
             return@LaunchedEffect
         }
         delay(400.milliseconds)
-        viewModel.searchScenes(searchQuery, serverUrl, apiKey, username, password, playlist.savedFilter)
+        viewModel.searchScenes(searchQuery, serverUrl, apiKey, username, password, playlist?.savedFilter)
     }
 
     Scaffold(
@@ -261,7 +262,7 @@ fun SceneListScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = playlist.name,
+                        text = playlist?.name ?: "Scenes",
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -274,7 +275,7 @@ fun SceneListScreen(
                 actions = {
                     IconButton(
                         onClick = {
-                            viewModel.toggleSortDirection(serverUrl, apiKey, username, password, playlist.savedFilter)
+                            viewModel.toggleSortDirection(serverUrl, apiKey, username, password, playlist?.savedFilter)
                         }
                     ) {
                         DirectionArrowIcon(isDescending = state.activeDirection == SortDirectionEnum.DESC)
@@ -292,7 +293,7 @@ fun SceneListScreen(
                                 text = { Text("Play All") },
                                 onClick = {
                                     showOverflowMenu = false
-                                    viewModel.fetchAllMatchingScenes(serverUrl, apiKey, username, password, playlist.savedFilter) { allScenes ->
+                                    viewModel.fetchAllMatchingScenes(serverUrl, apiKey, username, password, playlist?.savedFilter) { allScenes ->
                                         onPlayAll(allScenes)
                                     }
                                 }
@@ -301,7 +302,7 @@ fun SceneListScreen(
                                 text = { Text("Shuffle") },
                                 onClick = {
                                     showOverflowMenu = false
-                                    viewModel.fetchAllMatchingScenes(serverUrl, apiKey, username, password, playlist.savedFilter) { allScenes ->
+                                    viewModel.fetchAllMatchingScenes(serverUrl, apiKey, username, password, playlist?.savedFilter) { allScenes ->
                                         onPlayRandom(allScenes)
                                     }
                                 }
@@ -341,7 +342,7 @@ fun SceneListScreen(
                                     },
                                     onClick = {
                                         showOverflowMenu = false
-                                        viewModel.selectSortField(key, serverUrl, apiKey, username, password, playlist.savedFilter)
+                                        viewModel.selectSortField(key, serverUrl, apiKey, username, password, playlist?.savedFilter)
                                     }
                                 )
                             }
@@ -375,7 +376,7 @@ fun SceneListScreen(
                             style = MaterialTheme.typography.bodyLarge
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Button(onClick = { viewModel.refresh(serverUrl, apiKey, username, password, playlist.savedFilter) }) {
+                        Button(onClick = { viewModel.refresh(serverUrl, apiKey, username, password, playlist?.savedFilter) }) {
                             Text("Retry")
                         }
                     }
@@ -429,7 +430,7 @@ fun SceneListScreen(
                                 itemsIndexed(state.scenes) { index, scene ->
                                     if (index >= state.scenes.size - 3 && state.canLoadMore && !state.isFetchingNextPage) {
                                         LaunchedEffect(index) {
-                                            viewModel.loadNextPage(serverUrl, apiKey, username, password, playlist.savedFilter)
+                                            viewModel.loadNextPage(serverUrl, apiKey, username, password, playlist?.savedFilter)
                                         }
                                     }
 

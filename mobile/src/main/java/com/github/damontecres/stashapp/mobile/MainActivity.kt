@@ -100,6 +100,12 @@ class MainActivity : ComponentActivity() {
                     var showTagManager by remember {
                         mutableStateOf(false)
                     }
+                    var selectedTagId by remember {
+                        mutableStateOf<String?>(null)
+                    }
+                    var selectedTagName by remember {
+                        mutableStateOf<String?>(null)
+                    }
                     var showSettings by remember {
                         mutableStateOf(false)
                     }
@@ -282,6 +288,55 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+                        selectedTagId != null -> {
+                            BackHandler(enabled = true) {
+                                selectedTagId = null
+                                selectedTagName = null
+                            }
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                SceneListScreen(
+                                    serverUrl = serverUrl,
+                                    apiKey = apiKey,
+                                    username = username,
+                                    password = password,
+                                    playlist = null,
+                                    tagId = selectedTagId,
+                                    onBack = {
+                                        selectedTagId = null
+                                        selectedTagName = null
+                                    },
+                                    onSceneClick = { scene ->
+                                        playQueue = listOf(scene)
+                                        selectedScene = scene
+                                    },
+                                    onPlayAll = { scenes ->
+                                        playQueue = scenes
+                                        scenes.firstOrNull()?.let { selectedScene = it }
+                                    },
+                                    onPlayRandom = { scenes ->
+                                        val shuffled = scenes.shuffled()
+                                        playQueue = shuffled
+                                        shuffled.firstOrNull()?.let { selectedScene = it }
+                                    }
+                                )
+
+                                if (selectedScene != null) {
+                                    ScenePlayerScreen(
+                                        serverUrl = serverUrl,
+                                        apiKey = apiKey,
+                                        username = username,
+                                        password = password,
+                                        scene = selectedScene!!,
+                                        playQueue = playQueue,
+                                        initialIndex = playQueue.indexOf(selectedScene).coerceAtLeast(0),
+                                        onBack = {
+                                            selectedScene = null
+                                            playQueue = emptyList()
+                                        }
+                                    )
+                                }
+                            }
+                        }
                         showTagManager -> {
                             BackHandler(enabled = true) {
                                 showTagManager = false
@@ -291,7 +346,11 @@ class MainActivity : ComponentActivity() {
                                 apiKey = apiKey,
                                 username = username,
                                 password = password,
-                                onBack = { showTagManager = false }
+                                onBack = { showTagManager = false },
+                                onTagClick = { tagId, tagName ->
+                                    selectedTagId = tagId
+                                    selectedTagName = tagName
+                                }
                             )
                         }
                         else -> {

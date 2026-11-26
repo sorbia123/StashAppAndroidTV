@@ -40,7 +40,8 @@ class SceneListViewModel : ViewModel() {
         apiKey: String,
         username: String = "",
         password: String = "",
-        savedFilter: FindSavedFiltersQuery.FindSavedFilter? = null
+        savedFilter: FindSavedFiltersQuery.FindSavedFilter? = null,
+        tagId: String? = null
     ) {
         val savedFind = savedFilter?.savedFilter?.find_filter
         val initialSort = savedFind?.sort ?: "date"
@@ -57,7 +58,7 @@ class SceneListViewModel : ViewModel() {
             searchQuery = initialQuery,
             scenes = emptyList()
         )
-        loadNextPage(serverUrl, apiKey, username, password, savedFilter)
+        loadNextPage(serverUrl, apiKey, username, password, savedFilter, tagId)
     }
 
     fun refreshSingleScene(
@@ -196,7 +197,8 @@ class SceneListViewModel : ViewModel() {
         apiKey: String,
         username: String = "",
         password: String = "",
-        savedFilter: FindSavedFiltersQuery.FindSavedFilter? = null
+        savedFilter: FindSavedFiltersQuery.FindSavedFilter? = null,
+        tagId: String? = null
     ) {
         if (_state.value.isFetchingNextPage || !_state.value.canLoadMore) return
 
@@ -208,7 +210,13 @@ class SceneListViewModel : ViewModel() {
 
                 val savedFind = savedFilter?.savedFilter?.find_filter
                 val objectFilter = savedFilter?.savedFilter?.object_filter
-                val sceneFilter = FilterParser.convertSceneFilterType(objectFilter)
+                val baseSceneFilter = FilterParser.convertSceneFilterType(objectFilter)
+
+                val sceneFilter = if (tagId != null) {
+                    FilterParser.convertSceneFilterType(mapOf("tags" to mapOf("value" to listOf(tagId), "modifier" to "INCLUDES")))
+                } else {
+                    baseSceneFilter
+                }
 
                 val effectiveSort = _state.value.activeSort
                 val effectiveDirection = _state.value.activeDirection

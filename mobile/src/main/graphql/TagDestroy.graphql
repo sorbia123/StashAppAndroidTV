@@ -1,0 +1,3 @@
+mutation TagDestroy($input: TagDestroyInput!) {
+    tagDestroy(input: $input)
+}

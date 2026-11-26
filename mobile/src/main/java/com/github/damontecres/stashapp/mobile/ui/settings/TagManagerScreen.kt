@@ -1,6 +1,7 @@
 package com.github.damontecres.stashapp.mobile.ui.settings
 
 import android.content.Context
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,8 +14,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.apollographql.apollo.api.Optional
+import com.github.damontecres.stashapp.mobile.api.CreateTagMutation
 import com.github.damontecres.stashapp.mobile.api.FindTagsQuery
+import com.github.damontecres.stashapp.mobile.api.TagDestroyMutation
+import com.github.damontecres.stashapp.mobile.api.TagUpdateMutation
 import com.github.damontecres.stashapp.mobile.api.type.FindFilterType
+import com.github.damontecres.stashapp.mobile.api.type.TagCreateInput
+import com.github.damontecres.stashapp.mobile.api.type.TagUpdateInput
 import com.github.damontecres.stashapp.mobile.net.StashMobileClient
 import com.github.damontecres.stashapp.mobile.ui.home.BackArrowIcon
 import kotlinx.coroutines.Dispatchers
@@ -29,25 +35,61 @@ fun TagManagerScreen(
     apiKey: String,
     username: String,
     password: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onTagClick: (tagId: String, tagName: String) -> Unit
 ) {
     val context = LocalContext.current
     val sharedPrefs = remember { context.getSharedPreferences("stash_mobile_prefs", Context.MODE_PRIVATE) }
     val scope = rememberCoroutineScope()
 
+    var tags by remember { mutableStateOf<List<FindTagsQuery.Tag>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var searchQuery by remember { mutableStateOf("") }
+
     var quickAddTagsString by remember {
         mutableStateOf(sharedPrefs.getString("quick_add_tags", "archive,desi,foreigner") ?: "archive,desi,foreigner")
     }
-
     val quickAddTags = remember(quickAddTagsString) {
         quickAddTagsString.split(",").map { it.trim() }.filter { it.isNotBlank() }.toMutableStateList()
     }
 
-    var newTagInput by remember { mutableStateOf("") }
-    var tagSuggestions by remember { mutableStateOf<List<FindTagsQuery.Tag>>(emptyList()) }
-    var showSuggestions by remember { mutableStateOf(false) }
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var newTagNameInput by remember { mutableStateOf("") }
 
-    fun saveTags(updatedList: List<String>) {
+    var editTagTarget by remember { mutableStateOf<FindTagsQuery.Tag?>(null) }
+    var editTagNameInput by remember { mutableStateOf("") }
+
+    fun loadTags(query: String = "") {
+        scope.launch(Dispatchers.IO) {
+            try {
+                isLoading = true
+                val client = StashMobileClient.createApolloClient(serverUrl, apiKey, username, password)
+                val response = client.query(
+                    FindTagsQuery(
+                        filter = if (query.isNotBlank()) FindFilterType(q = Optional.present(query)) else null,
+                        tag_filter = null,
+                        ids = null
+                    )
+                ).execute()
+                val list = response.data?.findTags?.tags.orEmpty()
+                withContext(Dispatchers.Main) {
+                    tags = list
+                    isLoading = false
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to load tags")
+                withContext(Dispatchers.Main) {
+                    isLoading = false
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        loadTags()
+    }
+
+    fun saveQuickAddTags(updatedList: List<String>) {
         val str = updatedList.joinToString(",")
         quickAddTagsString = str
         sharedPrefs.edit().putString("quick_add_tags", str).apply()
@@ -56,10 +98,21 @@ fun TagManagerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Tag Manager (Quick-Add Tags)") },
+                title = { Text("Tag Manager") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         BackArrowIcon()
+                    }
+                },
+                actions = {
+                    Button(
+                        onClick = {
+                            newTagNameInput = ""
+                            showCreateDialog = true
+                        },
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Text("New Tag")
                     }
                 }
             )
@@ -72,133 +125,213 @@ fun TagManagerScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Configure Quick-Add Tags used in the Scene Player",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { query ->
+                    searchQuery = query
+                    loadTags(query)
+                },
+                label = { Text("Search tags...") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = newTagInput,
-                    onValueChange = { query ->
-                        newTagInput = query
-                        showSuggestions = query.isNotBlank()
-                        if (query.isNotBlank()) {
-                            scope.launch(Dispatchers.IO) {
-                                try {
-                                    val client = StashMobileClient.createApolloClient(serverUrl, apiKey, username, password)
-                                    val response = client.query(
-                                        FindTagsQuery(
-                                            filter = FindFilterType(q = Optional.present(query)),
-                                            tag_filter = null,
-                                            ids = null
-                                        )
-                                    ).execute()
-                                    val tags = response.data?.findTags?.tags.orEmpty()
-                                    withContext(Dispatchers.Main) {
-                                        tagSuggestions = tags
-                                    }
-                                } catch (e: Exception) {
-                                    Timber.e(e, "Failed to search tags")
-                                }
-                            }
-                        } else {
-                            tagSuggestions = emptyList()
-                        }
-                    },
-                    label = { Text("Add Quick-Add Tag Name") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Button(
-                    onClick = {
-                        val trimmed = newTagInput.trim()
-                        if (trimmed.isNotBlank() && !quickAddTags.contains(trimmed)) {
-                            quickAddTags.add(trimmed)
-                            saveTags(quickAddTags)
-                            newTagInput = ""
-                            showSuggestions = false
-                        }
-                    }
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("Add")
+                    CircularProgressIndicator()
                 }
-            }
-
-            if (showSuggestions && tagSuggestions.isNotEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            } else if (tags.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 200.dp)
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        tagSuggestions.forEach { suggestion ->
-                            DropdownMenuItem(
-                                text = { Text(suggestion.name) },
-                                onClick = {
-                                    if (!quickAddTags.contains(suggestion.name)) {
-                                        quickAddTags.add(suggestion.name)
-                                        saveTags(quickAddTags)
-                                    }
-                                    newTagInput = ""
-                                    showSuggestions = false
-                                    tagSuggestions = emptyList()
-                                }
-                            )
-                        }
-                    }
+                    Text("No tags found", style = MaterialTheme.typography.bodyLarge)
                 }
-            }
-
-            Text(
-                text = "Configured Quick-Add Tags (${quickAddTags.size}):",
-                style = MaterialTheme.typography.titleMedium
-            )
-
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(quickAddTags) { tagName ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Row(
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(tags) { tag ->
+                        val isQuickAdd = quickAddTags.contains(tag.name)
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                                .clickable { onTagClick(tag.id, tag.name) },
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                         ) {
-                            Text(
-                                text = tagName,
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            TextButton(
-                                onClick = {
-                                    quickAddTags.remove(tagName)
-                                    saveTags(quickAddTags)
-                                }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("Remove", color = MaterialTheme.colorScheme.error)
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = tag.name,
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                    Text(
+                                        text = if (isQuickAdd) "★ Quick-Add Enabled" else "Tap to view scenes",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (isQuickAdd) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    )
+                                }
+
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Toggle Quick-Add button
+                                    TextButton(
+                                        onClick = {
+                                            if (isQuickAdd) {
+                                                quickAddTags.remove(tag.name)
+                                            } else {
+                                                quickAddTags.add(tag.name)
+                                            }
+                                            saveQuickAddTags(quickAddTags)
+                                        }
+                                    ) {
+                                        Text(if (isQuickAdd) "Unstar" else "Star Quick-Add")
+                                    }
+
+                                    // Edit Tag
+                                    TextButton(
+                                        onClick = {
+                                            editTagTarget = tag
+                                            editTagNameInput = tag.name
+                                        }
+                                    ) {
+                                        Text("Edit")
+                                    }
+
+                                    // Delete Tag
+                                    TextButton(
+                                        onClick = {
+                                            scope.launch(Dispatchers.IO) {
+                                                try {
+                                                    val client = StashMobileClient.createApolloClient(serverUrl, apiKey, username, password)
+                                                    client.mutation(TagDestroyMutation(input = com.github.damontecres.stashapp.mobile.api.type.TagDestroyInput(id = tag.id))).execute()
+                                                    loadTags(searchQuery)
+                                                } catch (e: Exception) {
+                                                    Timber.e(e, "Failed to delete tag")
+                                                }
+                                            }
+                                        }
+                                    ) {
+                                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
         }
+    }
+
+    // Create Tag Dialog
+    if (showCreateDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreateDialog = false },
+            title = { Text("Create New Tag") },
+            text = {
+                OutlinedTextField(
+                    value = newTagNameInput,
+                    onValueChange = { newTagNameInput = it },
+                    label = { Text("Tag Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val name = newTagNameInput.trim()
+                        if (name.isNotBlank()) {
+                            scope.launch(Dispatchers.IO) {
+                                try {
+                                    val client = StashMobileClient.createApolloClient(serverUrl, apiKey, username, password)
+                                    client.mutation(CreateTagMutation(input = TagCreateInput(name = name))).execute()
+                                    showCreateDialog = false
+                                    loadTags(searchQuery)
+                                } catch (e: Exception) {
+                                    Timber.e(e, "Failed to create tag")
+                                }
+                            }
+                        }
+                    }
+                ) {
+                    Text("Create")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Edit Tag Dialog
+    if (editTagTarget != null) {
+        AlertDialog(
+            onDismissRequest = { editTagTarget = null },
+            title = { Text("Edit Tag") },
+            text = {
+                OutlinedTextField(
+                    value = editTagNameInput,
+                    onValueChange = { editTagNameInput = it },
+                    label = { Text("Tag Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val newName = editTagNameInput.trim()
+                        val target = editTagTarget
+                        if (newName.isNotBlank() && target != null) {
+                            scope.launch(Dispatchers.IO) {
+                                try {
+                                    val client = StashMobileClient.createApolloClient(serverUrl, apiKey, username, password)
+                                    client.mutation(
+                                        TagUpdateMutation(
+                                            input = TagUpdateInput(
+                                                id = target.id,
+                                                name = Optional.present(newName)
+                                            )
+                                        )
+                                    ).execute()
+                                    editTagTarget = null
+                                    loadTags(searchQuery)
+                                } catch (e: Exception) {
+                                    Timber.e(e, "Failed to update tag")
+                                }
+                            }
+                        }
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editTagTarget = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
