@@ -5,6 +5,7 @@ query FindTags($filter: FindFilterType, $tag_filter: TagFilterType, $ids: [ID!])
             id
             name
             image_path
+            scene_count
         }
     }
 }

@@ -67,7 +67,7 @@ fun TagManagerScreen(
     val scope = rememberCoroutineScope()
     val state by viewModel.state.collectAsState()
 
-    var selectedTab by remember { mutableStateOf(0) } // 0: Quick-Add Tags, 1: All Tags
+    var selectedTab by remember { mutableStateOf(0) } // 0: All Tags, 1: Quick-Add Tags
 
     // Quick-Add Tags state
     var quickAddTagsString by remember {
@@ -121,7 +121,7 @@ fun TagManagerScreen(
                         }
                     },
                     actions = {
-                        if (selectedTab == 1) {
+                        if (selectedTab == 0) {
                             IconButton(onClick = { showSortMenu = true }) {
                                 MoreVertIcon()
                             }
@@ -175,18 +175,18 @@ fun TagManagerScreen(
                     Tab(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        text = { Text("Quick-Add Tags (${quickAddTags.size})") }
+                        text = { Text("All Tags (${state.totalCount})") }
                     )
                     Tab(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
-                        text = { Text("All Tags (${state.totalCount})") }
+                        text = { Text("Quick-Add Tags (${quickAddTags.size})") }
                     )
                 }
             }
         },
         floatingActionButton = {
-            if (selectedTab == 1) {
+            if (selectedTab == 0) {
                 FloatingActionButton(
                     onClick = {
                         newTagNameInput = ""
@@ -206,6 +206,130 @@ fun TagManagerScreen(
         ) {
             when (selectedTab) {
                 0 -> {
+                    // All Tags Tab with pagination & sorting
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            label = { Text("Search all Stash tags...") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        when {
+                            state.isLoading && state.tags.isEmpty() -> {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator()
+                                }
+                            }
+                            state.tags.isEmpty() -> {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("No tags found", style = MaterialTheme.typography.bodyLarge)
+                                }
+                            }
+                            else -> {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    itemsIndexed(state.tags) { index, tag ->
+                                        if (index >= state.tags.size - 3 && state.canLoadMore && !state.isFetchingNextPage) {
+                                            LaunchedEffect(index) {
+                                                viewModel.loadNextPage(serverUrl, apiKey, username, password)
+                                            }
+                                        }
+
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { onTagClick(tag.id, tag.name) },
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(16.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = tag.name,
+                                                        style = MaterialTheme.typography.titleMedium
+                                                    )
+                                                    Text(
+                                                        text = "${tag.scene_count} scenes • Tap to view",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                                    )
+                                                }
+
+                                                Row(
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    TextButton(
+                                                        onClick = {
+                                                            editTagTarget = tag
+                                                            editTagNameInput = tag.name
+                                                        }
+                                                    ) {
+                                                        Text("Edit")
+                                                    }
+
+                                                    TextButton(
+                                                        onClick = {
+                                                            scope.launch(Dispatchers.IO) {
+                                                                try {
+                                                                    val client = StashMobileClient.createApolloClient(serverUrl, apiKey, username, password)
+                                                                    client.mutation(TagDestroyMutation(input = com.github.damontecres.stashapp.mobile.api.type.TagDestroyInput(id = tag.id))).execute()
+                                                                    viewModel.refresh(serverUrl, apiKey, username, password)
+                                                                } catch (e: Exception) {
+                                                                    Timber.e(e, "Failed to delete tag")
+                                                                }
+                                                            }
+                                                        }
+                                                    ) {
+                                                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if (state.isFetchingNextPage) {
+                                        item {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(16.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                1 -> {
                     // Quick-Add Tab
                     Column(
                         modifier = Modifier.fillMaxSize(),
@@ -329,130 +453,6 @@ fun TagManagerScreen(
                                             }
                                         ) {
                                             Text("Remove", color = MaterialTheme.colorScheme.error)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                1 -> {
-                    // All Tags Tab with pagination & sorting
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            label = { Text("Search all Stash tags...") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        when {
-                            state.isLoading && state.tags.isEmpty() -> {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .weight(1f),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator()
-                                }
-                            }
-                            state.tags.isEmpty() -> {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .weight(1f),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("No tags found", style = MaterialTheme.typography.bodyLarge)
-                                }
-                            }
-                            else -> {
-                                LazyColumn(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    itemsIndexed(state.tags) { index, tag ->
-                                        if (index >= state.tags.size - 3 && state.canLoadMore && !state.isFetchingNextPage) {
-                                            LaunchedEffect(index) {
-                                                viewModel.loadNextPage(serverUrl, apiKey, username, password)
-                                            }
-                                        }
-
-                                        Card(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable { onTagClick(tag.id, tag.name) },
-                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                                        ) {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(16.dp),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(
-                                                        text = tag.name,
-                                                        style = MaterialTheme.typography.titleMedium
-                                                    )
-                                                    Text(
-                                                        text = "Tap to view scenes",
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                                    )
-                                                }
-
-                                                Row(
-                                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    TextButton(
-                                                        onClick = {
-                                                            editTagTarget = tag
-                                                            editTagNameInput = tag.name
-                                                        }
-                                                    ) {
-                                                        Text("Edit")
-                                                    }
-
-                                                    TextButton(
-                                                        onClick = {
-                                                            scope.launch(Dispatchers.IO) {
-                                                                try {
-                                                                    val client = StashMobileClient.createApolloClient(serverUrl, apiKey, username, password)
-                                                                    client.mutation(TagDestroyMutation(input = com.github.damontecres.stashapp.mobile.api.type.TagDestroyInput(id = tag.id))).execute()
-                                                                    viewModel.refresh(serverUrl, apiKey, username, password)
-                                                                } catch (e: Exception) {
-                                                                    Timber.e(e, "Failed to delete tag")
-                                                                }
-                                                            }
-                                                        }
-                                                    ) {
-                                                        Text("Delete", color = MaterialTheme.colorScheme.error)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if (state.isFetchingNextPage) {
-                                        item {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(16.dp),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                CircularProgressIndicator(modifier = Modifier.size(32.dp))
-                                            }
                                         }
                                     }
                                 }
