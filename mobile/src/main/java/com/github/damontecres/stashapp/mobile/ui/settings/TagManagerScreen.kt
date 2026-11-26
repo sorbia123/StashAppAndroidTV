@@ -145,7 +145,7 @@ fun TagManagerScreen(
                                     "name" to "Name",
                                     "created_at" to "Date Added",
                                     "updated_at" to "Updated At",
-                                    "scene_count" to "Scene Count",
+                                    "scenes_count" to "Scene Count",
                                     "random" to "Random"
                                 )
                                 sortOptions.forEach { (key, label) ->

@@ -428,9 +428,9 @@ fun SceneListScreen(
                                 contentPadding = PaddingValues(bottom = 60.dp)
                             ) {
                                 itemsIndexed(state.scenes) { index, scene ->
-                                    if (index >= state.scenes.size - 3 && state.canLoadMore && !state.isFetchingNextPage) {
+                                    if (state.scenes.isNotEmpty() && index >= state.scenes.size - 3 && state.canLoadMore && !state.isFetchingNextPage) {
                                         LaunchedEffect(index) {
-                                            viewModel.loadNextPage(serverUrl, apiKey, username, password, playlist?.savedFilter)
+                                            viewModel.loadNextPage(serverUrl, apiKey, username, password, playlist?.savedFilter, tagId)
                                         }
                                     }
 
