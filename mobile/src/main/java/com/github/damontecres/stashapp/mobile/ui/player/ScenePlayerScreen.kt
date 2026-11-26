@@ -6,6 +6,7 @@
 package com.github.damontecres.stashapp.mobile.ui.player
 
 import android.app.Activity
+import android.content.Context
 import android.content.pm.ActivityInfo
 import android.view.GestureDetector
 import android.view.MotionEvent
@@ -442,7 +443,14 @@ fun ScenePlayerScreen(
     val videoFile = activeScene.files.firstOrNull()?.videoFile
     val isPortraitVideo = (videoFile?.height ?: 0) > (videoFile?.width ?: 0)
 
-    val stickyTagDefaults = listOf("archive", "desi", "foreigner")
+    val sharedPrefs = remember { context.getSharedPreferences("stash_mobile_prefs", Context.MODE_PRIVATE) }
+    val stickyTagDefaults = remember {
+        sharedPrefs.getString("quick_add_tags", "archive,desi,foreigner")
+            ?.split(",")
+            ?.map { it.trim() }
+            ?.filter { it.isNotBlank() }
+            ?: listOf("archive", "desi", "foreigner")
+    }
 
     val toggleFullscreen: () -> Unit = {
         isFullscreen = !isFullscreen

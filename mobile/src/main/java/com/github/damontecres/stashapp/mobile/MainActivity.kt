@@ -22,6 +22,7 @@ import com.github.damontecres.stashapp.mobile.ui.onboarding.PinUnlockScreen
 import com.github.damontecres.stashapp.mobile.ui.onboarding.ServerSetupScreen
 import com.github.damontecres.stashapp.mobile.ui.player.ScenePlayerScreen
 import com.github.damontecres.stashapp.mobile.ui.settings.SettingsScreen
+import com.github.damontecres.stashapp.mobile.ui.settings.TagManagerScreen
 
 class MainActivity : ComponentActivity() {
     private val isAppLockedState = mutableStateOf(false)
@@ -94,6 +95,9 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf<List<SlimSceneData>>(emptyList())
                     }
                     var showOAnalytics by remember {
+                        mutableStateOf(false)
+                    }
+                    var showTagManager by remember {
                         mutableStateOf(false)
                     }
                     var showSettings by remember {
@@ -278,12 +282,24 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+                        showTagManager -> {
+                            BackHandler(enabled = true) {
+                                showTagManager = false
+                            }
+                            TagManagerScreen(
+                                serverUrl = serverUrl,
+                                apiKey = apiKey,
+                                username = username,
+                                password = password,
+                                onBack = { showTagManager = false }
+                            )
+                        }
                         else -> {
                             AppHomeScreen(
                                 serverUrl = serverUrl,
                                 onNavigateToPlaylists = { showPlaylists = true },
                                 onNavigateToOAnalytics = { showOAnalytics = true },
-                                onNavigateToTags = { /* Tag Manager */ },
+                                onNavigateToTags = { showTagManager = true },
                                 onNavigateToPerformers = { /* Performer Manager */ },
                                 onNavigateToSettings = { showSettings = true }
                             )
