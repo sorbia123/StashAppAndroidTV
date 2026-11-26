@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.apollographql.apollo.api.Optional
 import com.github.damontecres.stashapp.mobile.api.CreateTagMutation
 import com.github.damontecres.stashapp.mobile.api.FindTagsQuery
@@ -21,12 +22,16 @@ import com.github.damontecres.stashapp.mobile.api.TagUpdateMutation
 import com.github.damontecres.stashapp.mobile.api.type.FindFilterType
 import com.github.damontecres.stashapp.mobile.api.type.TagCreateInput
 import com.github.damontecres.stashapp.mobile.api.type.TagUpdateInput
+import com.github.damontecres.stashapp.mobile.api.type.SortDirectionEnum
 import com.github.damontecres.stashapp.mobile.net.StashMobileClient
 import com.github.damontecres.stashapp.mobile.ui.home.BackArrowIcon
+import com.github.damontecres.stashapp.mobile.ui.home.DirectionArrowIcon
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,11 +41,13 @@ fun TagManagerScreen(
     username: String,
     password: String,
     onBack: () -> Unit,
-    onTagClick: (tagId: String, tagName: String) -> Unit
+    onTagClick: (tagId: String, tagName: String) -> Unit,
+    viewModel: TagManagerViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val sharedPrefs = remember { context.getSharedPreferences("stash_mobile_prefs", Context.MODE_PRIVATE) }
     val scope = rememberCoroutineScope()
+    val state by viewModel.state.collectAsState()
 
     var selectedTab by remember { mutableStateOf(0) } // 0: Quick-Add Tags, 1: All Tags
 
@@ -55,45 +62,28 @@ fun TagManagerScreen(
     var quickAddSuggestions by remember { mutableStateOf<List<FindTagsQuery.Tag>>(emptyList()) }
     var showQuickAddSuggestions by remember { mutableStateOf(false) }
 
-    // All Tags state
-    var allTags by remember { mutableStateOf<List<FindTagsQuery.Tag>>(emptyList()) }
-    var isLoadingTags by remember { mutableStateOf(true) }
-    var allTagsSearchQuery by remember { mutableStateOf("") }
-
+    // All Tags search & sort state
+    var searchQuery by remember { mutableStateOf("") }
+    var showSortMenu by remember { mutableStateOf(false) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var newTagNameInput by remember { mutableStateOf("") }
 
     var editTagTarget by remember { mutableStateOf<FindTagsQuery.Tag?>(null) }
     var editTagNameInput by remember { mutableStateOf("") }
 
-    fun loadAllTags(query: String = "") {
-        scope.launch(Dispatchers.IO) {
-            try {
-                isLoadingTags = true
-                val client = StashMobileClient.createApolloClient(serverUrl, apiKey, username, password)
-                val response = client.query(
-                    FindTagsQuery(
-                        filter = if (query.isNotBlank()) FindFilterType(q = Optional.present(query)) else null,
-                        tag_filter = null,
-                        ids = null
-                    )
-                ).execute()
-                val list = response.data?.findTags?.tags.orEmpty()
-                withContext(Dispatchers.Main) {
-                    allTags = list
-                    isLoadingTags = false
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to load tags")
-                withContext(Dispatchers.Main) {
-                    isLoadingTags = false
-                }
-            }
-        }
+    LaunchedEffect(Unit) {
+        viewModel.refresh(serverUrl, apiKey, username, password)
     }
 
-    LaunchedEffect(Unit) {
-        loadAllTags()
+    // Debounced search
+    var isInitialSearch by remember { mutableStateOf(true) }
+    LaunchedEffect(searchQuery) {
+        if (isInitialSearch) {
+            isInitialSearch = false
+            return@LaunchedEffect
+        }
+        delay(400.milliseconds)
+        viewModel.updateSearchQuery(searchQuery, serverUrl, apiKey, username, password)
     }
 
     fun saveQuickAddTags(updatedList: List<String>) {
@@ -114,6 +104,41 @@ fun TagManagerScreen(
                     },
                     actions = {
                         if (selectedTab == 1) {
+                            IconButton(
+                                onClick = {
+                                    viewModel.updateSort(state.activeSort, serverUrl, apiKey, username, password)
+                                }
+                            ) {
+                                DirectionArrowIcon(isDescending = state.activeDirection == SortDirectionEnum.DESC)
+                            }
+
+                            Box {
+                                TextButton(onClick = { showSortMenu = true }) {
+                                    Text("Sort: ${state.activeSort}")
+                                }
+                                DropdownMenu(
+                                    expanded = showSortMenu,
+                                    onDismissRequest = { showSortMenu = false }
+                                ) {
+                                    val sortOptions = listOf(
+                                        "name" to "Name",
+                                        "created_at" to "Date Added",
+                                        "updated_at" to "Updated At",
+                                        "scene_count" to "Scene Count",
+                                        "random" to "Random"
+                                    )
+                                    sortOptions.forEach { (key, label) ->
+                                        DropdownMenuItem(
+                                            text = { Text(label) },
+                                            onClick = {
+                                                showSortMenu = false
+                                                viewModel.updateSort(key, serverUrl, apiKey, username, password)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
                             Button(
                                 onClick = {
                                     newTagNameInput = ""
@@ -135,7 +160,7 @@ fun TagManagerScreen(
                     Tab(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
-                        text = { Text("All Tags (${allTags.size})") }
+                        text = { Text("All Tags (${state.totalCount})") }
                     )
                 }
             }
@@ -248,7 +273,8 @@ fun TagManagerScreen(
                                 .weight(1f),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            items(quickAddTags) { tagName ->
+                            items(count = quickAddTags.size) { index ->
+                                val tagName = quickAddTags[index]
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
                                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -266,7 +292,7 @@ fun TagManagerScreen(
                                         )
                                         TextButton(
                                             onClick = {
-                                                quickAddTags.remove(tagName)
+                                                quickAddTags.remove(tagName as Any)
                                                 saveQuickAddTags(quickAddTags)
                                             }
                                         ) {
@@ -279,101 +305,121 @@ fun TagManagerScreen(
                     }
                 }
                 1 -> {
-                    // All Tags Tab
+                    // All Tags Tab with pagination & sorting
                     Column(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         OutlinedTextField(
-                            value = allTagsSearchQuery,
-                            onValueChange = { query ->
-                                allTagsSearchQuery = query
-                                loadAllTags(query)
-                            },
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
                             label = { Text("Search all Stash tags...") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        if (isLoadingTags) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator()
+                        when {
+                            state.isLoading && state.tags.isEmpty() -> {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator()
+                                }
                             }
-                        } else if (allTags.isEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("No tags found", style = MaterialTheme.typography.bodyLarge)
+                            state.tags.isEmpty() -> {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("No tags found", style = MaterialTheme.typography.bodyLarge)
+                                }
                             }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(allTags) { tag ->
-                                    Card(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { onTagClick(tag.id, tag.name) },
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                                    ) {
-                                        Row(
+                            else -> {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    itemsIndexed(state.tags) { index, tag ->
+                                        if (index >= state.tags.size - 3 && state.canLoadMore && !state.isFetchingNextPage) {
+                                            LaunchedEffect(index) {
+                                                viewModel.loadNextPage(serverUrl, apiKey, username, password)
+                                            }
+                                        }
+
+                                        Card(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .padding(16.dp),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
+                                                .clickable { onTagClick(tag.id, tag.name) },
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                                         ) {
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(
-                                                    text = tag.name,
-                                                    style = MaterialTheme.typography.titleMedium
-                                                )
-                                                Text(
-                                                    text = "Tap to view scenes",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                                )
-                                            }
-
                                             Row(
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(16.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                TextButton(
-                                                    onClick = {
-                                                        editTagTarget = tag
-                                                        editTagNameInput = tag.name
-                                                    }
-                                                ) {
-                                                    Text("Edit")
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = tag.name,
+                                                        style = MaterialTheme.typography.titleMedium
+                                                    )
+                                                    Text(
+                                                        text = "Tap to view scenes",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                                    )
                                                 }
 
-                                                TextButton(
-                                                    onClick = {
-                                                        scope.launch(Dispatchers.IO) {
-                                                            try {
-                                                                val client = StashMobileClient.createApolloClient(serverUrl, apiKey, username, password)
-                                                                client.mutation(TagDestroyMutation(input = com.github.damontecres.stashapp.mobile.api.type.TagDestroyInput(id = tag.id))).execute()
-                                                                loadAllTags(allTagsSearchQuery)
-                                                            } catch (e: Exception) {
-                                                                Timber.e(e, "Failed to delete tag")
+                                                Row(
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    TextButton(
+                                                        onClick = {
+                                                            editTagTarget = tag
+                                                            editTagNameInput = tag.name
+                                                        }
+                                                    ) {
+                                                        Text("Edit")
+                                                    }
+
+                                                    TextButton(
+                                                        onClick = {
+                                                            scope.launch(Dispatchers.IO) {
+                                                                try {
+                                                                    val client = StashMobileClient.createApolloClient(serverUrl, apiKey, username, password)
+                                                                    client.mutation(TagDestroyMutation(input = com.github.damontecres.stashapp.mobile.api.type.TagDestroyInput(id = tag.id))).execute()
+                                                                    viewModel.refresh(serverUrl, apiKey, username, password)
+                                                                } catch (e: Exception) {
+                                                                    Timber.e(e, "Failed to delete tag")
+                                                                }
                                                             }
                                                         }
+                                                    ) {
+                                                        Text("Delete", color = MaterialTheme.colorScheme.error)
                                                     }
-                                                ) {
-                                                    Text("Delete", color = MaterialTheme.colorScheme.error)
                                                 }
+                                            }
+                                        }
+                                    }
+
+                                    if (state.isFetchingNextPage) {
+                                        item {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(16.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                CircularProgressIndicator(modifier = Modifier.size(32.dp))
                                             }
                                         }
                                     }
@@ -410,7 +456,7 @@ fun TagManagerScreen(
                                     val client = StashMobileClient.createApolloClient(serverUrl, apiKey, username, password)
                                     client.mutation(CreateTagMutation(input = TagCreateInput(name = name))).execute()
                                     showCreateDialog = false
-                                    loadAllTags(allTagsSearchQuery)
+                                    viewModel.refresh(serverUrl, apiKey, username, password)
                                 } catch (e: Exception) {
                                     Timber.e(e, "Failed to create tag")
                                 }
@@ -461,7 +507,7 @@ fun TagManagerScreen(
                                         )
                                     ).execute()
                                     editTagTarget = null
-                                    loadAllTags(allTagsSearchQuery)
+                                    viewModel.refresh(serverUrl, apiKey, username, password)
                                 } catch (e: Exception) {
                                     Timber.e(e, "Failed to update tag")
                                 }
